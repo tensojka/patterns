@@ -12,6 +12,8 @@ def get_language(filename):
         return 'zlw/pl'
     elif 'cs' in lowercase_filename:
         return 'zlw/cs'
+    elif 'sk' in lowercase_filename:
+        return 'zlw/sk'
     elif 'uk' in lowercase_filename:
         return 'zle/uk'
     print("defaulting to cs lang, no match!")
