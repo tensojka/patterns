@@ -2,6 +2,9 @@
 
 all: work/cs.frqwl
 
+work/%.ipa.wlh: work/%.wlh
+	python wlh2ipawlh $< $@
+
 work/%.frqwl: work/%
 	python wiki2frqwl.py $< $@
 
