@@ -1,0 +1,45 @@
+https://github.com/dmort27/epitran
+- umí dobře transliterovat do IPA, ale jedná se jen o transliteraci – konverze zpět by měla být možná, otázka je, jestli transliterace stačí pro kvalitní vzory, nebo je potřeba jít až na transkripci
+- s transkripcí bych mohl narazit na limit počtu znaků akceptovaných patgenem
+
+>>> epi.transliterate('chlubič')
+'ɦlubɪt͡ʃ'
+>>> epi.transliterate('chameleon')
+'xameleon'
+>>> epi.transliterate('cha-me-le-on')
+'xa-me-le-on'
+>>> epi.transliterate('nafoukaný')
+'nafoukaniː'
+>>> epi.transliterate('nafoukaní')
+'nafoukaɲiː'
+>>> epi.transliterate('na-fou-ka-ný')
+'na-fou-ka-niː'
+>>> epi.transliterate('na-fou-ka-ní')
+'na-fou-ka-ɲiː'
+>>> epi.transliterate('rough')
+'rouɡx'
+>>> epi.transliterate('rozumět')
+'rozumɲet'
+>>> epi.transliterate('maminka')
+'mamɪnka'
+>>> epi.transliterate('matinka')
+'macɪnka'
+>>> epi.transliterate('chcu')
+'xt͡su'
+
+trochu problém:
+>>> epi.transliterate('rozpolcený')
+'rospolt͡seniː'
+>>> epi.transliterate('roz-pol-ce-ný')
+'roz-pol-t͡se-niː'
+
+Polstina:
+
+>>> pol = epitran.Epitran('pol-Latn')
+po>>> pol.transliterate('zjednoczonych')
+'zjɛdnɔt͡ʂɔnɨx'
+>>> pol.transliterate('zje-dno-czo-nych')
+'zjɛ-dnɔ-t͡ʂɔ-nɨx'
+šéflékař
+
+- pro cestinu, delka tuples z word_to_tuples a delka puvodniho slova je stejna, dokud nahradim ch 1 znakem
