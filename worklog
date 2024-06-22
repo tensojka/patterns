@@ -46,3 +46,4 @@ po>>> pol.transliterate('zjednoczonych')
 
 22.6. levenshtein distance based transform funguje nejlepe
 
+generated pl.ipa.wlh. total unique unicode chars: 43

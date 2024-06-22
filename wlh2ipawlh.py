@@ -2,6 +2,8 @@ import subprocess
 import sys
 from transform_hyphens import transform
 import os
+import multiprocessing
+from functools import partial
 
 def get_language(filename):
     lowercase_filename = filename.lower()
@@ -28,7 +30,15 @@ def main(input_file, output_file):
     with open(input_file, 'r') as file:
         words = file.read().splitlines()
     
-    results = map(lambda word: process_word(word, language), words)
+    # Use all available cores minus one
+    num_cores = max(1, multiprocessing.cpu_count() - 1)
+    
+    # Create a partial function with the language parameter
+    process_word_with_lang = partial(process_word, language=language)
+    
+    # Use Pool to distribute work across cores
+    with multiprocessing.Pool(num_cores) as pool:
+        results = pool.map(process_word_with_lang, words)
     
     with open(output_file, 'w') as out_file:
         for result in results:
