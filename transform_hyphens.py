@@ -29,17 +29,18 @@ def transform(hyphenated: str, target: str):
 
     return best_result
 
-# Test cases
-test_cases = [
-    ("abc-d-ef", "axbxcdxef"),
-    ("ne-boj-sa", "nebojsa"),
-    ("pret-hod-ny", "predhodny"),
-    ("roz-šou-stat", "rˈosʃoʊstat"),
-    ("ne-roz-hod-nost", "nˈeroshˌodnost")
+def run_tests():
+    test_cases = [
+        ("abc-d-ef", "axbxcdxef"),
+        ("ne-boj-sa", "nebojsa"),
+        ("pret-hod-ny", "predhodny"),
+        ("roz-šou-stat", "rˈosʃoʊstat"),
+        ("ne-roz-hod-nost", "nˈeroshˌodnost")
+    ]
+    for hyphenated, target in test_cases:
+        result = transform(hyphenated, target)
+        print(f"Input: {hyphenated} -> {target}")
+        print(f"Output: {result}\n")
 
-]
-
-for hyphenated, target in test_cases:
-    result = transform(hyphenated, target)
-    print(f"Input: {hyphenated} -> {target}")
-    print(f"Output: {result}\n")
+if __name__ == "__main__":
+    run_tests()

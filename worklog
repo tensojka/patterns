@@ -43,3 +43,6 @@ po>>> pol.transliterate('zjednoczonych')
 šéflékař
 
 - pro cestinu, delka tuples z word_to_tuples a delka puvodniho slova je stejna, dokud nahradim ch 1 znakem
+
+22.6. levenshtein distance based transform funguje nejlepe
+
