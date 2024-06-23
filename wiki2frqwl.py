@@ -7,17 +7,20 @@ def process_files(directory, lowercase=True):
     word_counter = Counter()
     total_words = 0
     
-    for root, dirs, files in os.walk(directory):
-        for file in files:
-            file_path = os.path.join(root, file)
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                content = re.sub(r'<[^>]+>', '', content)  # Remove XML tags and attributes
-                if lowercase:
-                    content = content.lower()
-                words = re.findall(r'\b[a-záčďéěíňóřšťúůýž]+(?:-[a-záčďéěíňóřšťúůýž]+)*\b', content)
-                word_counter.update(words)
-                total_words += len(words)
+    def process_file(file_path):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            content = re.sub(r'<[^>]+>', '', content)  # Remove XML tags and attributes
+            if lowercase:
+                content = content.lower()
+            # Updated regex pattern to include Cyrillic and other scripts
+            words = re.findall(r'\b[\p{L}\p{M}]+(?:-[\p{L}\p{M}]+)*\b', content, re.UNICODE)
+            word_counter.update(words)
+            return len(words)
+    
+    total_words = sum(map(process_file, (os.path.join(root, file) 
+                                         for root, _, files in os.walk(directory) 
+                                         for file in files)))
     
     return word_counter, total_words
 
