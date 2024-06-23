@@ -1,6 +1,6 @@
-use itertools::Itertools;
 use strsim::levenshtein;
 use rayon::prelude::*;
+use itertools::Itertools;
 
 fn get_hyphen_points(hyphenated: &str) -> Vec<usize> {
     hyphenated.char_indices()
@@ -21,13 +21,13 @@ fn insert_hyphens(word: &str, positions: &[usize]) -> String {
 }
 
 pub fn transform(hyphenated: &str, target: &str) -> String {
-    let origin = hyphenated.replace("-", "");
     let num_hyphens = get_hyphen_points(hyphenated).len();
     
     let possible_positions: Vec<usize> = (1..target.len()).collect();
     
-    possible_positions.into_par_iter()
+    possible_positions.into_iter()
         .combinations(num_hyphens)
+        .par_bridge()
         .filter(|hyphen_positions| {
             hyphen_positions.first() != Some(&0) && hyphen_positions.last() != Some(&(target.len() - 1))
         })
