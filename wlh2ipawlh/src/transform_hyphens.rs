@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use strsim::levenshtein;
+use rayon::prelude::*;
 
 fn get_hyphen_points(hyphenated: &str) -> Vec<usize> {
     hyphenated.char_indices()
@@ -24,25 +25,28 @@ pub fn transform(hyphenated: &str, target: &str) -> String {
     let num_hyphens = get_hyphen_points(hyphenated).len();
     
     let possible_positions: Vec<usize> = (1..target.len()).collect();
-    let mut best_result = String::new();
-    let mut min_distance = usize::MAX;
-
-    for hyphen_positions in possible_positions.into_iter().combinations(num_hyphens) {
-        // Skip if any hyphen position is at the start or end of the word
-        if hyphen_positions.first() == Some(&0) || hyphen_positions.last() == Some(&(target.len() - 1)) {
-            continue;
-        }
-
-        let candidate = insert_hyphens(target, &hyphen_positions);
-        let current_distance = levenshtein(hyphenated, &candidate);
-        
-        if current_distance < min_distance {
-            min_distance = current_distance;
-            best_result = candidate;
-        }
-    }
-
-    best_result
+    
+    possible_positions.into_par_iter()
+        .combinations(num_hyphens)
+        .filter(|hyphen_positions| {
+            hyphen_positions.first() != Some(&0) && hyphen_positions.last() != Some(&(target.len() - 1))
+        })
+        .map(|hyphen_positions| {
+            let candidate = insert_hyphens(target, &hyphen_positions);
+            let current_distance = levenshtein(hyphenated, &candidate);
+            (candidate, current_distance)
+        })
+        .reduce(
+            || (String::new(), usize::MAX),
+            |(best_result, min_distance), (candidate, current_distance)| {
+                if current_distance < min_distance {
+                    (candidate, current_distance)
+                } else {
+                    (best_result, min_distance)
+                }
+            }
+        )
+        .0
 }
 
 #[cfg(test)]
