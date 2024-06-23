@@ -2,7 +2,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use rayon::prelude::*;
 use serde_json;
 use crate::transform_hyphens::transform;
@@ -11,6 +11,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 mod transform_hyphens;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+const BATCH_SIZE: usize = 100;
 
 fn get_language(filename: &str) -> &'static str {
     let lowercase_filename = filename.to_lowercase();
@@ -28,24 +30,35 @@ fn get_language(filename: &str) -> &'static str {
     }
 }
 
-fn get_ipa(word: &str, language: &str) -> String {
-    let output = Command::new("espeak-ng")
-        .args(&["-v", language, "--ipa", word])
-        .output()
-        .expect("Failed to execute espeak-ng");
-    String::from_utf8_lossy(&output.stdout).trim().to_string()
-}
+fn process_word_batch(words: &[String], language: &str) -> Vec<(String, (String, String))> {
+    let stripped_words: Vec<String> = words.iter().map(|w| w.replace("-", "")).collect();
+    
+    let mut child = Command::new("espeak-ng")
+        .args(&["-v", language, "--ipa"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn espeak-ng");
 
-fn process_word(hyphenated_word: &str, language: &str) -> (String, (String, String)) {
-    let count = WORD_COUNT.fetch_add(1, Ordering::Relaxed);
-    if count % 1_000 == 0 {
-        print!(".");
-        std::io::stdout().flush().unwrap();
+    {
+        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
+        for word in &stripped_words {
+            writeln!(stdin, "{}", word).expect("Failed to write to stdin");
+        }
     }
 
-    let stripped_word = hyphenated_word.replace("-", "");
-    let ipa_word = get_ipa(&stripped_word, language);
-    (transform(hyphenated_word, &ipa_word), (stripped_word, ipa_word))
+    let output = child.wait_with_output().expect("Failed to read stdout");
+    let ipa_words: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|s| s.to_string())
+        .collect();
+
+    words.iter().zip(stripped_words.iter().zip(ipa_words.iter()))
+        .map(|(hyphenated_word, (stripped_word, ipa_word))| {
+            WORD_COUNT.fetch_add(1, Ordering::Relaxed);
+            (transform(hyphenated_word, ipa_word), (stripped_word.clone(), ipa_word.clone()))
+        })
+        .collect()
 }
 
 fn main() -> std::io::Result<()> {
@@ -66,8 +79,8 @@ fn main() -> std::io::Result<()> {
         .collect();
 
     println!("Processing words:");
-    let results: Vec<(String, (String, String))> = words.par_iter()
-        .map(|word| process_word(word, language))
+    let results: Vec<(String, (String, String))> = words.par_chunks(BATCH_SIZE)
+        .flat_map(|chunk| process_word_batch(chunk, language))
         .collect();
     println!("\nProcessed {} words", WORD_COUNT.load(Ordering::Relaxed));
 
