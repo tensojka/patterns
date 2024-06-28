@@ -10,6 +10,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::collections::HashMap;
 use std::io::ErrorKind;
+use translit::{Transliterator, gost779b_ua};
+use std::sync::Arc;
+use std::time::Duration;
+use std::thread;
 
 mod transform_hyphens;
 
@@ -33,6 +37,17 @@ fn get_language(filename: &str) -> &'static str {
         println!("defaulting to cs lang, no match!");
         "zlw/cs"
     }
+}
+
+fn transliterate_ukrainian(input: &str) -> String {
+    let tr = Transliterator::new(gost779b_ua());
+    input.chars().flat_map(|c| {
+        if c == '-' {
+            vec![c]
+        } else {
+            tr.convert(&c.to_string(), false).chars().collect::<Vec<char>>()
+        }
+    }).collect()
 }
 
 fn process_word_batch(words: &[String], language: &str) -> Vec<(String, (String, String))> {
@@ -61,12 +76,14 @@ fn process_word_batch(words: &[String], language: &str) -> Vec<(String, (String,
 
     words.iter().zip(stripped_words.iter().zip(ipa_words.iter()))
         .map(|(hyphenated_word, (stripped_word, ipa_word))| {
-            let count = WORD_COUNT.fetch_add(1, Ordering::Relaxed);
-            if count % 1024 == 0 {
-                print!(".");
-                std::io::stdout().flush().unwrap();
-            }
-            (transform(hyphenated_word, ipa_word), (stripped_word.clone(), ipa_word.clone()))
+            let transliterated_hyphenated = if language == "zle/uk" {
+                transliterate_ukrainian(hyphenated_word)
+            } else {
+                hyphenated_word.to_string()
+            };
+            let res = (transform(&transliterated_hyphenated, ipa_word), (stripped_word.clone(), ipa_word.clone()));
+            WORD_COUNT.fetch_add(1, Ordering::Relaxed);
+            res
         })
         .collect()
 }
@@ -92,9 +109,19 @@ fn main() -> std::io::Result<()> {
     let out_file = Mutex::new(File::create(output_file)?);
     let ipa_map = Mutex::new(HashMap::new());
 
-    // Limit the number of threads to 128 or the number of available cores, whichever is smaller
-    let num_threads = std::cmp::min(128, rayon::current_num_threads());
-    rayon::ThreadPoolBuilder::new().num_threads(num_threads).build_global().unwrap();
+    // Create an Arc to share the static WORD_COUNT across threads
+    let shared_word_count = Arc::new(&WORD_COUNT);
+    let word_count_clone = Arc::clone(&shared_word_count);
+
+    // Spawn a new thread to print the word count every few seconds
+    thread::spawn(move || {
+        loop {
+            thread::sleep(Duration::from_secs(3));
+            let count = word_count_clone.load(Ordering::Relaxed);
+            print!("\rProcessed {} words", count);
+            io::stdout().flush().unwrap();
+        }
+    });
 
     words.par_chunks(BATCH_SIZE)
         .try_for_each(|chunk| -> std::io::Result<()> {
@@ -114,15 +141,10 @@ fn main() -> std::io::Result<()> {
                 map_guard.insert(stripped_word.clone(), ipa_word.clone());
             }
             
-            // Print progress
-            let count = WORD_COUNT.load(Ordering::Relaxed);
-            print!("\rProcessed {} words", count);
-            std::io::stdout().flush()?;
-
             Ok(())
         })?;
 
-    println!("\nProcessed {} words", WORD_COUNT.load(Ordering::Relaxed));
+    println!("\nFinished processing {} words", WORD_COUNT.load(Ordering::Relaxed));
 
     // Write IPA cache
     let cache_dir = Path::new("work").join("ipacache");
