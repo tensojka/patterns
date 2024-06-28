@@ -17,8 +17,8 @@ def parse_frqwl(filename, minfreq=0):
         ln = 0
 
         for line in inpf:
-            if has_forbidden_character(line):
-                continue
+            # if has_forbidden_character(line):
+            #     continue
             split = line.split("\t")
             try:
                 if int(split[1]) > minfreq:

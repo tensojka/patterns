@@ -1,5 +1,5 @@
 import os
-import re
+import regex as re  # Change this import
 import sys
 from collections import Counter
 
@@ -13,7 +13,7 @@ def process_files(directory, lowercase=True):
             content = re.sub(r'<[^>]+>', '', content)  # Remove XML tags and attributes
             if lowercase:
                 content = content.lower()
-            # Updated regex pattern to include Cyrillic and other scripts
+            # This line remains the same, but will now work with the regex module
             words = re.findall(r'\b[\p{L}\p{M}]+(?:-[\p{L}\p{M}]+)*\b', content, re.UNICODE)
             word_counter.update(words)
             return len(words)
