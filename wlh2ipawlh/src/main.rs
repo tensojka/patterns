@@ -27,6 +27,8 @@ fn get_language(filename: &str) -> &'static str {
         "zlw/sk"
     } else if lowercase_filename.contains("uk") {
         "zle/uk"
+    } else if lowercase_filename.contains("sl") {
+        "zls/sl"
     } else {
         println!("defaulting to cs lang, no match!");
         "zlw/cs"
@@ -89,6 +91,10 @@ fn main() -> std::io::Result<()> {
     println!("Processing words:");
     let out_file = Mutex::new(File::create(output_file)?);
     let ipa_map = Mutex::new(HashMap::new());
+
+    // Limit the number of threads to 128 or the number of available cores, whichever is smaller
+    let num_threads = std::cmp::min(128, rayon::current_num_threads());
+    rayon::ThreadPoolBuilder::new().num_threads(num_threads).build_global().unwrap();
 
     words.par_chunks(BATCH_SIZE)
         .try_for_each(|chunk| -> std::io::Result<()> {
