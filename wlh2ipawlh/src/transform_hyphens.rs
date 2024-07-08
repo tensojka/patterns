@@ -1,5 +1,4 @@
-use strsim::levenshtein;
-use rayon::prelude::*;
+use triple_accel::levenshtein::levenshtein_simd_k_str;
 use itertools::Itertools;
 
 fn get_hyphen_points(hyphenated: &str) -> Vec<usize> {
@@ -22,31 +21,25 @@ fn insert_hyphens(word: &str, positions: &[usize]) -> String {
 
 pub fn transform(hyphenated: &str, target: &str) -> String {
     let num_hyphens = get_hyphen_points(hyphenated).len();
-    
     let possible_positions: Vec<usize> = (1..target.len()).collect();
-    
-    possible_positions.into_iter()
-        .combinations(num_hyphens)
-        .par_bridge()
-        .filter(|hyphen_positions| {
-            hyphen_positions.first() != Some(&0) && hyphen_positions.last() != Some(&(target.len() - 1))
-        })
-        .map(|hyphen_positions| {
-            let candidate = insert_hyphens(target, &hyphen_positions);
-            let current_distance = levenshtein(hyphenated, &candidate);
-            (candidate, current_distance)
-        })
-        .reduce(
-            || (String::new(), usize::MAX),
-            |(best_result, min_distance), (candidate, current_distance)| {
-                if current_distance < min_distance {
-                    (candidate, current_distance)
-                } else {
-                    (best_result, min_distance)
-                }
+    let mut best_distance = hyphenated.len() as u32;
+    let mut best_candidate = String::new();
+
+    for hyphen_positions in possible_positions.into_iter().combinations(num_hyphens) {
+        if hyphen_positions.first() == Some(&0) || hyphen_positions.last() == Some(&(target.len() - 1)) {
+            continue;
+        }
+
+        let candidate = insert_hyphens(target, &hyphen_positions);
+        if let Some(distance) = levenshtein_simd_k_str(hyphenated, &candidate, best_distance) {
+            if distance < best_distance {
+                best_distance = distance;
+                best_candidate = candidate;
             }
-        )
-        .0
+        }
+    }
+
+    if best_candidate.is_empty() { target.to_string() } else { best_candidate }
 }
 
 #[cfg(test)]
