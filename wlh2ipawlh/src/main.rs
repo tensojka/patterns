@@ -18,7 +18,7 @@ mod transform_hyphens;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-const BATCH_SIZE: usize = 128;
+const BATCH_SIZE: usize = 50;
 const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5 minutes
 
 fn get_language(filename: &str) -> &'static str {
