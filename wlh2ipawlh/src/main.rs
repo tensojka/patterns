@@ -7,11 +7,10 @@ use rayon::prelude::*;
 use serde_json;
 use crate::transform_hyphens::transform;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Mutex;
+use std::sync::{RwLock, Mutex, Arc};
 use std::collections::HashMap;
 use std::io::ErrorKind;
 use translit::{Transliterator, gost779b_ua};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::thread;
 
@@ -19,7 +18,7 @@ mod transform_hyphens;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-const BATCH_SIZE: usize = 100;
+const BATCH_SIZE: usize = 128;
 const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5 minutes
 
 fn get_language(filename: &str) -> &'static str {
@@ -108,19 +107,25 @@ fn main() -> std::io::Result<()> {
 
     println!("Processing words:");
     let out_file = Mutex::new(File::create(output_file)?);
-    let ipa_map = Mutex::new(HashMap::new());
+    let ipa_file = Path::new("work").join("ipacache").join(format!("{}.json", language.replace('/', "-")));
 
-    // Load existing IPA cache
-    let cache_dir = Path::new("work").join("ipacache");
-    fs::create_dir_all(&cache_dir)?;
-    let ipa_file = cache_dir.join(format!("{}.json", language.replace('/', "-")));
-    let mut ipa_map = if ipa_file.exists() {
-        let json = fs::read_to_string(&ipa_file)?;
-        serde_json::from_str(&json).unwrap_or_else(|_| HashMap::new())
-    } else {
-        HashMap::new()
-    };
-    let ipa_map = Mutex::new(ipa_map);
+    let ipa_map = Arc::new(RwLock::new(load_ipa_cache(&ipa_file)?));
+
+    // Spawn a new thread for periodic cache saving
+    let ipa_map_clone = Arc::clone(&ipa_map);
+    let ipa_file_clone = ipa_file.clone();
+    thread::spawn(move || {
+        let mut last_save = Instant::now();
+        loop {
+            thread::sleep(CACHE_INTERVAL);
+            if last_save.elapsed() >= CACHE_INTERVAL {
+                if let Err(e) = save_ipa_cache(&ipa_map_clone, &ipa_file_clone) {
+                    eprintln!("Error saving IPA cache: {}", e);
+                }
+                last_save = Instant::now();
+            }
+        }
+    });
 
     // Create an Arc to share the static WORD_COUNT across threads
     let shared_word_count = Arc::new(&WORD_COUNT);
@@ -136,8 +141,6 @@ fn main() -> std::io::Result<()> {
         }
     });
 
-    let last_cache_save = Mutex::new(Instant::now());
-
     words.par_chunks(BATCH_SIZE)
         .try_for_each(|chunk| -> std::io::Result<()> {
             let batch_results = process_word_batch(chunk, language);
@@ -150,19 +153,9 @@ fn main() -> std::io::Result<()> {
                 writeln!(file_guard, "{}", transformed_word)?;
                 
                 // Update IPA map
-                let mut map_guard = ipa_map.lock().map_err(|e| {
-                    std::io::Error::new(ErrorKind::Other, format!("Failed to lock IPA map: {}", e))
-                })?;
-                map_guard.insert(stripped_word.clone(), ipa_word.clone());
-            }
-            
-            // Check if it's time to save the cache
-            let mut last_save = last_cache_save.lock().map_err(|e| {
-                std::io::Error::new(ErrorKind::Other, format!("Failed to lock last_cache_save: {}", e))
-            })?;
-            if last_save.elapsed() >= CACHE_INTERVAL {
-                save_ipa_cache(&ipa_map, &ipa_file)?;
-                *last_save = Instant::now();
+                if let Ok(mut map_guard) = ipa_map.write() {
+                    map_guard.insert(stripped_word.clone(), ipa_word.clone());
+                }
             }
             
             Ok(())
@@ -176,12 +169,20 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn save_ipa_cache(ipa_map: &Mutex<HashMap<String, String>>, ipa_file: &Path) -> std::io::Result<()> {
-    let map_guard = ipa_map.lock().map_err(|e| {
-        std::io::Error::new(ErrorKind::Other, format!("Failed to lock IPA map: {}", e))
-    })?;
-    let json = serde_json::to_string(&*map_guard)?;
-    fs::write(ipa_file, json)?;
-    println!("\nSaved IPA cache to {:?}", ipa_file);
+fn load_ipa_cache(ipa_file: &Path) -> std::io::Result<HashMap<String, String>> {
+    if ipa_file.exists() {
+        let json = fs::read_to_string(ipa_file)?;
+        Ok(serde_json::from_str(&json).unwrap_or_else(|_| HashMap::new()))
+    } else {
+        Ok(HashMap::new())
+    }
+}
+
+fn save_ipa_cache(ipa_map: &RwLock<HashMap<String, String>>, ipa_file: &Path) -> std::io::Result<()> {
+    if let Ok(map_guard) = ipa_map.read() {
+        let json = serde_json::to_string(&*map_guard)?;
+        fs::write(ipa_file, json)?;
+        println!("\nSaved IPA cache to {:?}", ipa_file);
+    }
     Ok(())
 }
