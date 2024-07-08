@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::io::ErrorKind;
 use translit::{Transliterator, gost779b_ua};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::thread;
 
 mod transform_hyphens;
@@ -20,6 +20,7 @@ mod transform_hyphens;
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 const BATCH_SIZE: usize = 100;
+const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5 minutes
 
 fn get_language(filename: &str) -> &'static str {
     let lowercase_filename = filename.to_lowercase();
@@ -109,6 +110,18 @@ fn main() -> std::io::Result<()> {
     let out_file = Mutex::new(File::create(output_file)?);
     let ipa_map = Mutex::new(HashMap::new());
 
+    // Load existing IPA cache
+    let cache_dir = Path::new("work").join("ipacache");
+    fs::create_dir_all(&cache_dir)?;
+    let ipa_file = cache_dir.join(format!("{}.json", language.replace('/', "-")));
+    let mut ipa_map = if ipa_file.exists() {
+        let json = fs::read_to_string(&ipa_file)?;
+        serde_json::from_str(&json).unwrap_or_else(|_| HashMap::new())
+    } else {
+        HashMap::new()
+    };
+    let ipa_map = Mutex::new(ipa_map);
+
     // Create an Arc to share the static WORD_COUNT across threads
     let shared_word_count = Arc::new(&WORD_COUNT);
     let word_count_clone = Arc::clone(&shared_word_count);
@@ -122,6 +135,8 @@ fn main() -> std::io::Result<()> {
             io::stdout().flush().unwrap();
         }
     });
+
+    let last_cache_save = Mutex::new(Instant::now());
 
     words.par_chunks(BATCH_SIZE)
         .try_for_each(|chunk| -> std::io::Result<()> {
@@ -141,21 +156,32 @@ fn main() -> std::io::Result<()> {
                 map_guard.insert(stripped_word.clone(), ipa_word.clone());
             }
             
+            // Check if it's time to save the cache
+            let mut last_save = last_cache_save.lock().map_err(|e| {
+                std::io::Error::new(ErrorKind::Other, format!("Failed to lock last_cache_save: {}", e))
+            })?;
+            if last_save.elapsed() >= CACHE_INTERVAL {
+                save_ipa_cache(&ipa_map, &ipa_file)?;
+                *last_save = Instant::now();
+            }
+            
             Ok(())
         })?;
 
     println!("\nFinished processing {} words", WORD_COUNT.load(Ordering::Relaxed));
 
-    // Write IPA cache
-    let cache_dir = Path::new("work").join("ipacache");
-    fs::create_dir_all(&cache_dir)?;
-    let ipa_file = cache_dir.join(format!("{}.json", language.replace('/', "-")));
+    // Final cache save
+    save_ipa_cache(&ipa_map, &ipa_file)?;
 
-    let ipa_map = ipa_map.into_inner().map_err(|e| {
-        std::io::Error::new(ErrorKind::Other, format!("Failed to unwrap IPA map: {}", e))
+    Ok(())
+}
+
+fn save_ipa_cache(ipa_map: &Mutex<HashMap<String, String>>, ipa_file: &Path) -> std::io::Result<()> {
+    let map_guard = ipa_map.lock().map_err(|e| {
+        std::io::Error::new(ErrorKind::Other, format!("Failed to lock IPA map: {}", e))
     })?;
-    let json = serde_json::to_string(&ipa_map)?;
+    let json = serde_json::to_string(&*map_guard)?;
     fs::write(ipa_file, json)?;
-
+    println!("\nSaved IPA cache to {:?}", ipa_file);
     Ok(())
 }
