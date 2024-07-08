@@ -12,6 +12,7 @@ static IPA_ASCII_TABLE: phf::Map<char, char> = phf_map! {
     'ʊ' => 'u',
     'ɔ' => 'o',
     'ɲ' => 'n',
+    'ŋ' => 'n',
     'ɨ' => 'i',
     'ʒ' => 'z',
     'ɛ' => 'e',
@@ -69,7 +70,6 @@ pub fn transform(hyphenated: &str, target: &str) -> String {
         .map(|(candidate, _)| candidate)
         .collect();
 
-    println!("Second pass: Calculate Levenshtein distance only for best Jaro candidates");
     let mut best_levenshtein_distance = usize::MAX;
     let mut best_levenshtein_candidates: Vec<String> = Vec::new();
 
@@ -134,6 +134,7 @@ mod tests {
         vec![
             //("abc-d-ef", "axbxcdxef"),
             ("ne-boj-sa", "nebojsa"),
+            ("gra-phics", "ɡrˈafiks"),
             ("pret-hod-ny", "predhodny"),
             ("roz-šou-stat", "rˈosʃoʊstat"),
             ("ju-ni-pe-rus", "jˌuɲipˈɛrus"),
