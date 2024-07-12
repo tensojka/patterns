@@ -29,7 +29,7 @@ fn get_hyphen_points(hyphenated: &str) -> Vec<usize> {
         .collect()
 }
 
-fn insert_hyphens(word: &str, positions: &[usize]) -> String {
+pub(crate) fn insert_hyphens(word: &str, positions: &[usize]) -> String {
     let mut result: Vec<char> = word.chars().collect();
     let mut offset = 0;
     for &pos in positions.iter() {
@@ -41,13 +41,16 @@ fn insert_hyphens(word: &str, positions: &[usize]) -> String {
     result.into_iter().collect()
 }
 
-pub fn transform(hyphenated: &str, target: &str) -> String {
+pub fn transform<F>(hyphenated: &str, target: &str, tiebreaker: F) -> String
+where
+    F: Fn(&[String], &str) -> String
+{
     let num_hyphens = get_hyphen_points(hyphenated).len();
     let possible_positions: Vec<usize> = (1..target.len()).collect();
     let ascii_hyphenated = ipa_to_ascii(hyphenated);
 
     // Generate all combinations first
-    let combinations: Vec<Vec<usize>> = possible_positions.into_iter()
+    let combinations: Vec<Vec<usize>> = possible_positions.clone().into_iter()
         .combinations(num_hyphens)
         .filter(|hyphen_positions| {
             hyphen_positions.first() != Some(&0) && hyphen_positions.last() != Some(&(target.len() - 1))
@@ -86,29 +89,17 @@ pub fn transform(hyphenated: &str, target: &str) -> String {
     }
 
     if best_levenshtein_candidates.len() > 1 {
-        println!("Resolving tie between {} candidates:", best_levenshtein_candidates.len());
-        for candidate in &best_levenshtein_candidates {
-            println!("  {}", candidate);
-        }
-        let best_candidate = resolve_tie(&ascii_hyphenated, &best_levenshtein_candidates);
-        println!("Selected: {}", best_candidate);
-        best_candidate
+        tiebreaker(&best_levenshtein_candidates, hyphenated)
     } else if let Some(best_candidate) = best_levenshtein_candidates.first() {
         best_candidate.clone()
     } else {
-        target.to_string()
+        println!("No valid candidates found. Hyphenated: {}, Target: {}, Possible positions: {:?}", hyphenated, target, possible_positions);
+        String::new()
     }
 }
 
-fn resolve_tie(hyphenated: &str, candidates: &[String]) -> String {
-    candidates
-        .iter()
-        .max_by_key(|candidate| calculate_jaro_like_score(hyphenated, candidate))
-        .unwrap_or(&candidates[0])
-        .clone()
-}
 
-fn calculate_jaro_like_score(hyphenated: &str, candidate: &str) -> u32 {
+pub(crate) fn calculate_jaro_like_score(hyphenated: &str, candidate: &str) -> u32 {
     let hyphenated_points = get_hyphen_points(hyphenated);
     let candidate_points = get_hyphen_points(candidate);
     
@@ -138,6 +129,7 @@ mod tests {
             ("pret-hod-ny", "predhodny"),
             ("roz-šou-stat", "rˈosʃoʊstat"),
             ("ju-ni-pe-rus", "jˌuɲipˈɛrus"),
+            ("sek-cja", "sˈɛktsja"), // TODO: pokud je remiza, rozdelit puvodni slabiky 
             ("ne-roz-hod-nost", "nˈeroshˌodnost"),
             ("za-chod-nio-eu-ro-pej-skich", "zˌaxɔdɲˌɔɛwrɔpˈɛjskix"),
             ("przy-rod-ni-czo-hu-ma-ni-stycz-ne-go", "pʃˌɨrɔdɲˌitʃɔxˌumaɲˌistɨtʃnˈɛɡɔ"),

@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use rayon::prelude::*;
 use serde_json;
-use crate::transform_hyphens::transform;
+use crate::transform_hyphens::{calculate_jaro_like_score, transform};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{RwLock, Mutex, Arc};
 use std::collections::HashMap;
@@ -17,6 +17,7 @@ use std::thread;
 mod transform_hyphens;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
+static TIE_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 const BATCH_SIZE: usize = 50;
 const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5 minutes
@@ -50,6 +51,35 @@ fn transliterate_ukrainian(input: &str) -> String {
     }).collect()
 }
 
+fn create_espeak_tiebreaker(language: String) -> impl Fn(&[String], &str) -> String {
+    move |candidates: &[String], original_hyphenated: &str| {
+        let original_ipa_parts: Vec<String> = original_hyphenated.split('-')
+            .map(|part| get_espeak_ipa(part, &language))
+            .collect();
+
+        candidates.iter()
+            .map(|candidate| {
+                let candidate_parts: Vec<&str> = candidate.split('-').collect();
+                let score = original_ipa_parts.iter().zip(candidate_parts.iter())
+                    .map(|(orig_ipa, cand)| calculate_jaro_like_score(orig_ipa, cand))
+                    .sum::<u32>();
+                (candidate, score)
+            })
+            .max_by_key(|&(_, score)| score)
+            .map(|(candidate, _)| candidate.to_string())
+            .unwrap_or_else(|| candidates[0].clone())
+    }
+}
+
+fn get_espeak_ipa(word: &str, language: &str) -> String {
+    let output = Command::new("espeak-ng")
+        .args(&["-v", language, "--ipa", word])
+        .output()
+        .expect("Failed to execute espeak-ng");
+
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
+}
+
 fn process_word_batch(words: &[String], language: &str) -> Vec<(String, (String, String))> {
     let stripped_words: Vec<String> = words.iter().map(|w| w.replace("-", "")).collect();
     
@@ -74,6 +104,8 @@ fn process_word_batch(words: &[String], language: &str) -> Vec<(String, (String,
         .map(|s| s.to_string())
         .collect();
 
+    let tiebreaker = create_espeak_tiebreaker(language.to_string());
+
     words.iter().zip(stripped_words.iter().zip(ipa_words.iter()))
         .map(|(hyphenated_word, (stripped_word, ipa_word))| {
             let transliterated_hyphenated = if language == "zle/uk" {
@@ -81,9 +113,9 @@ fn process_word_batch(words: &[String], language: &str) -> Vec<(String, (String,
             } else {
                 hyphenated_word.to_string()
             };
-            let res = (transform(&transliterated_hyphenated, ipa_word), (stripped_word.clone(), ipa_word.clone()));
+            let result = transform(&transliterated_hyphenated, ipa_word, &tiebreaker);
             WORD_COUNT.fetch_add(1, Ordering::Relaxed);
-            res
+            (result, (stripped_word.clone(), ipa_word.clone()))
         })
         .collect()
 }
@@ -161,7 +193,15 @@ fn main() -> std::io::Result<()> {
             Ok(())
         })?;
 
-    println!("\nFinished processing {} words", WORD_COUNT.load(Ordering::Relaxed));
+    let total_words = WORD_COUNT.load(Ordering::Relaxed);
+    let tied_words = TIE_COUNT.load(Ordering::Relaxed);
+    let processed_words = total_words - tied_words;
+
+    println!("\nProcessing complete:");
+    println!("Total words: {}", total_words);
+    println!("Processed words: {}", processed_words);
+    println!("Tied words (skipped): {}", tied_words);
+    println!("Tie percentage: {:.2}%", (tied_words as f64 / total_words as f64) * 100.0);
 
     // Final cache save
     save_ipa_cache(&ipa_map, &ipa_file)?;
