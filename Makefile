@@ -3,7 +3,8 @@
 all: work/cs.frqwl
 
 work/%.ipa.wlh: work/%.wlh
-	python wlh2ipawlh $< $@
+	cd wlh2ipawlh; RUSTFLAGS="-C target-cpu=native -C opt-level=3 -C codegen-units=1" cargo build --release
+	./wlh2ipawlh/target/release/wlh2ipawlh $< $@
 
 work/%.frqwl: work/%
 	python wiki2frqwl.py $< $@

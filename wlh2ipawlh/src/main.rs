@@ -1,25 +1,28 @@
 use std::env;
 use std::fs::{self, File};
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Read, Write, BufWriter};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use rayon::prelude::*;
 use serde_json;
 use crate::transform_hyphens::{calculate_jaro_like_score, transform};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{RwLock, Mutex, Arc};
 use std::collections::HashMap;
-use std::io::ErrorKind;
 use translit::{Transliterator, gost779b_ua};
 use std::time::{Duration, Instant};
 use std::thread;
+use dashmap::DashMap;
+use std::sync::Arc;
+use std::sync::Mutex;
+use serde::Serialize;
+use rayon::prelude::*;
+use std::mem;
 
 mod transform_hyphens;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 static TIE_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-const BATCH_SIZE: usize = 50;
+const BATCH_SIZE: usize = 500;
 const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5 minutes
 
 fn get_language(filename: &str) -> &'static str {
@@ -51,11 +54,107 @@ fn transliterate_ukrainian(input: &str) -> String {
     }).collect()
 }
 
-fn create_espeak_tiebreaker(language: String) -> impl Fn(&[String], &str) -> String {
+fn get_espeak_ipa_batch(words: &[String], language: &str) -> Vec<String> {
+    let input = words.join("\n");
+    let mut child = Command::new("espeak-ng")
+        .args(&["-v", language, "--ipa", "-q"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Failed to spawn espeak-ng");
+
+    {
+        let mut stdin = child.stdin.take().expect("Failed to open stdin");
+        stdin.write_all(input.as_bytes()).expect("Failed to write to stdin");
+    }
+
+    let mut output = String::new();
+    child.stdout.take().expect("Failed to open stdout")
+        .read_to_string(&mut output)
+        .expect("Failed to read from stdout");
+
+    child.wait().expect("Failed to wait on child");
+
+    output.trim()
+        .split('\n')
+        .map(|s| {
+            let trimmed = s.trim();
+            if trimmed.is_empty() {
+                println!("Warning: Empty IPA generated for a word");
+                String::from("?") // Placeholder for empty IPA
+            } else {
+                trimmed.to_string()
+            }
+        })
+        .collect()
+}
+
+fn process_word_batch(words: &[String], language: &str, ipa_map: Arc<DashMap<String, String>>) -> Vec<(String, String, String)> {
+    let mut results = Vec::with_capacity(words.len());
+    let mut words_to_process = Vec::new();
+
+    // First pass: Check cache and collect words that need processing
+    for word in words {
+        let stripped_word = word.replace("-", "");
+        if let Some(ipa) = ipa_map.get(&stripped_word) {
+            results.push((word.clone(), stripped_word, ipa.value().clone()));
+        } else {
+            words_to_process.push((word.clone(), stripped_word));
+        }
+    }
+
+    // Process words not found in cache
+    if !words_to_process.is_empty() {
+        let words_to_lookup: Vec<_> = words_to_process.iter().map(|(_, w)| w.clone()).collect();
+        let new_ipas = get_espeak_ipa_batch(&words_to_lookup, language);
+        for ((original_word, stripped_word), ipa) in words_to_process.into_iter().zip(new_ipas) {
+            ipa_map.insert(stripped_word.clone(), ipa.clone());
+            results.push((original_word, stripped_word, ipa));
+        }
+    }
+
+    let tiebreaker = create_espeak_tiebreaker(language.to_string(), Arc::clone(&ipa_map));
+
+    // Process results
+    results.into_iter().map(|(hyphenated_word, stripped_word, ipa_word)| {
+        let transliterated_hyphenated = if language == "zle/uk" {
+            transliterate_ukrainian(&hyphenated_word)
+        } else {
+            hyphenated_word.clone()
+        };
+        if ipa_word.is_empty() {
+            println!("Warning: Empty IPA for word: {}", hyphenated_word);
+            (hyphenated_word, stripped_word, ipa_word)
+        } else {
+            let result = transform(&transliterated_hyphenated, &ipa_word, &tiebreaker);
+            WORD_COUNT.fetch_add(1, Ordering::Relaxed);
+            (result, stripped_word, ipa_word)
+        }
+    }).collect()
+}
+
+fn create_espeak_tiebreaker(language: String, ipa_map: Arc<DashMap<String, String>>) -> impl Fn(&[String], &str) -> String {
     move |candidates: &[String], original_hyphenated: &str| {
-        let original_ipa_parts: Vec<String> = original_hyphenated.split('-')
-            .map(|part| get_espeak_ipa(part, &language))
-            .collect();
+        let original_parts: Vec<&str> = original_hyphenated.split('-').collect();
+        let mut words_to_process = Vec::new();
+        let mut original_ipa_parts = Vec::with_capacity(original_parts.len());
+
+        for &part in &original_parts {
+            if let Some(ipa) = ipa_map.get(part) {
+                original_ipa_parts.push(ipa.clone());
+            } else {
+                words_to_process.push(part.to_string());
+                original_ipa_parts.push(String::new()); // Placeholder for IPA to be filled later
+            }
+        }
+
+        if !words_to_process.is_empty() {
+            let new_ipas = get_espeak_ipa_batch(&words_to_process, &language);
+            for (part, ipa) in words_to_process.into_iter().zip(new_ipas) {
+                ipa_map.insert(part.clone(), ipa.clone());
+                original_ipa_parts[original_parts.iter().position(|&p| p == part).unwrap()] = ipa;
+            }
+        }
 
         candidates.iter()
             .map(|candidate| {
@@ -69,55 +168,6 @@ fn create_espeak_tiebreaker(language: String) -> impl Fn(&[String], &str) -> Str
             .map(|(candidate, _)| candidate.to_string())
             .unwrap_or_else(|| candidates[0].clone())
     }
-}
-
-fn get_espeak_ipa(word: &str, language: &str) -> String {
-    let output = Command::new("espeak-ng")
-        .args(&["-v", language, "--ipa", word])
-        .output()
-        .expect("Failed to execute espeak-ng");
-
-    String::from_utf8_lossy(&output.stdout).trim().to_string()
-}
-
-fn process_word_batch(words: &[String], language: &str) -> Vec<(String, (String, String))> {
-    let stripped_words: Vec<String> = words.iter().map(|w| w.replace("-", "")).collect();
-    
-    let mut child = Command::new("espeak-ng")
-        .args(&["-v", language, "--ipa"])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())  // Suppress stderr
-        .spawn()
-        .expect("Failed to spawn espeak-ng");
-
-    {
-        let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-        stripped_words.iter().for_each(|word| {
-            writeln!(stdin, "{}", word).expect("Failed to write to stdin");
-        });
-    }
-
-    let output = child.wait_with_output().expect("Failed to read stdout");
-    let ipa_words: Vec<String> = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(|s| s.to_string())
-        .collect();
-
-    let tiebreaker = create_espeak_tiebreaker(language.to_string());
-
-    words.iter().zip(stripped_words.iter().zip(ipa_words.iter()))
-        .map(|(hyphenated_word, (stripped_word, ipa_word))| {
-            let transliterated_hyphenated = if language == "zle/uk" {
-                transliterate_ukrainian(hyphenated_word)
-            } else {
-                hyphenated_word.to_string()
-            };
-            let result = transform(&transliterated_hyphenated, ipa_word, &tiebreaker);
-            WORD_COUNT.fetch_add(1, Ordering::Relaxed);
-            (result, (stripped_word.clone(), ipa_word.clone()))
-        })
-        .collect()
 }
 
 fn main() -> std::io::Result<()> {
@@ -138,10 +188,17 @@ fn main() -> std::io::Result<()> {
         .collect();
 
     println!("Processing words:");
-    let out_file = Mutex::new(File::create(output_file)?);
+    let out_file = Arc::new(Mutex::new(File::create(output_file)?));
     let ipa_file = Path::new("work").join("ipacache").join(format!("{}.json", language.replace('/', "-")));
 
-    let ipa_map = Arc::new(RwLock::new(load_ipa_cache(&ipa_file)?));
+    let ipa_map = Arc::new(DashMap::new());
+    if ipa_file.exists() {
+        let json = fs::read_to_string(&ipa_file)?;
+        let loaded_map: HashMap<String, String> = serde_json::from_str(&json).unwrap_or_else(|_| HashMap::new());
+        for (key, value) in loaded_map {
+            ipa_map.insert(key, value);
+        }
+    }
 
     // Spawn a new thread for periodic cache saving
     let ipa_map_clone = Arc::clone(&ipa_map);
@@ -149,12 +206,15 @@ fn main() -> std::io::Result<()> {
     thread::spawn(move || {
         let mut last_save = Instant::now();
         loop {
-            thread::sleep(CACHE_INTERVAL);
+            thread::sleep(Duration::from_secs(60)); // Check every minute
             if last_save.elapsed() >= CACHE_INTERVAL {
                 if let Err(e) = save_ipa_cache(&ipa_map_clone, &ipa_file_clone) {
                     eprintln!("Error saving IPA cache: {}", e);
                 }
                 last_save = Instant::now();
+                
+                // Shrink the DashMap to release unused memory
+                ipa_map_clone.shrink_to_fit();
             }
         }
     });
@@ -173,25 +233,19 @@ fn main() -> std::io::Result<()> {
         }
     });
 
-    words.par_chunks(BATCH_SIZE)
-        .try_for_each(|chunk| -> std::io::Result<()> {
-            let batch_results = process_word_batch(chunk, language);
+    // Process all words in batches using parallel iteration
+    words.par_chunks(BATCH_SIZE).for_each(|chunk| {
+        let batch_results = process_word_batch(chunk, language, Arc::clone(&ipa_map));
+        
+        // Write transformed words to file
+        let mut file_guard = out_file.lock().unwrap();
+        for (transformed_word, stripped_word, ipa_word) in batch_results {
+            writeln!(file_guard, "{}", transformed_word).unwrap();
             
-            // Write transformed words to file
-            let mut file_guard = out_file.lock().map_err(|e| {
-                std::io::Error::new(ErrorKind::Other, format!("Failed to lock file: {}", e))
-            })?;
-            for (transformed_word, (stripped_word, ipa_word)) in &batch_results {
-                writeln!(file_guard, "{}", transformed_word)?;
-                
-                // Update IPA map
-                if let Ok(mut map_guard) = ipa_map.write() {
-                    map_guard.insert(stripped_word.clone(), ipa_word.clone());
-                }
-            }
-            
-            Ok(())
-        })?;
+            // Update IPA map
+            ipa_map.insert(stripped_word, ipa_word);
+        }
+    });
 
     let total_words = WORD_COUNT.load(Ordering::Relaxed);
     let tied_words = TIE_COUNT.load(Ordering::Relaxed);
@@ -209,20 +263,19 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn load_ipa_cache(ipa_file: &Path) -> std::io::Result<HashMap<String, String>> {
-    if ipa_file.exists() {
-        let json = fs::read_to_string(ipa_file)?;
-        Ok(serde_json::from_str(&json).unwrap_or_else(|_| HashMap::new()))
-    } else {
-        Ok(HashMap::new())
-    }
-}
-
-fn save_ipa_cache(ipa_map: &RwLock<HashMap<String, String>>, ipa_file: &Path) -> std::io::Result<()> {
-    if let Ok(map_guard) = ipa_map.read() {
-        let json = serde_json::to_string(&*map_guard)?;
-        fs::write(ipa_file, json)?;
-        println!("\nSaved IPA cache to {:?}", ipa_file);
-    }
+fn save_ipa_cache(ipa_map: &DashMap<String, String>, ipa_file: &Path) -> std::io::Result<()> {
+    let file = File::create(ipa_file)?;
+    let writer = BufWriter::new(file);
+    let mut serializer = serde_json::Serializer::new(writer);
+    
+    // Convert DashMap to a regular HashMap before serialization
+    let regular_map: HashMap<String, String> = ipa_map.iter().map(|entry| (entry.key().clone(), entry.value().clone())).collect();
+    
+    regular_map.serialize(&mut serializer)?;
+    
+    // Explicitly drop the regular_map to free memory
+    mem::drop(regular_map);
+    
+    println!("\nSaved IPA cache to {:?}", ipa_file);
     Ok(())
 }

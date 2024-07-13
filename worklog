@@ -49,3 +49,10 @@ po>>> pol.transliterate('zjednoczonych')
 generated pl.ipa.wlh. total unique unicode chars: 43
 
 generated sk.ipa.wlh: total unique unicode chars: 38
+
+---
+
+nix-user-chroot /var/tmp/xsojka/.nix bash
+. /home/xsojka/.nix-profile/etc/profile.d/nix.sh
+cd data/patterns
+nix-shell
