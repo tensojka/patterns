@@ -4,7 +4,8 @@ use std::io::{self, BufRead, BufReader, Read, Write, BufWriter};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use serde_json;
-use crate::transform_hyphens::{calculate_jaro_like_score, transform};
+use transform_hyphens::transform::{calculate_jaro_like_score, transform};
+use transform_hyphens::get_language;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::HashMap;
 use translit::{Transliterator, gost779b_ua};
@@ -17,31 +18,12 @@ use serde::Serialize;
 use rayon::prelude::*;
 use std::mem;
 
-mod transform_hyphens;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 static TIE_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 const BATCH_SIZE: usize = 500;
 const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5 minutes
-
-fn get_language(filename: &str) -> &'static str {
-    let lowercase_filename = filename.to_lowercase();
-    if lowercase_filename.contains("pl") {
-        "zlw/pl"
-    } else if lowercase_filename.contains("cs") {
-        "zlw/cs"
-    } else if lowercase_filename.contains("sk") {
-        "zlw/sk"
-    } else if lowercase_filename.contains("uk") {
-        "zle/uk"
-    } else if lowercase_filename.contains("sl") {
-        "zls/sl"
-    } else {
-        println!("defaulting to cs lang, no match!");
-        "zlw/cs"
-    }
-}
 
 fn transliterate_ukrainian(input: &str) -> String {
     let tr = Transliterator::new(gost779b_ua());

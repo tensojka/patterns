@@ -99,7 +99,7 @@ where
 }
 
 
-pub(crate) fn calculate_jaro_like_score(hyphenated: &str, candidate: &str) -> u32 {
+pub fn calculate_jaro_like_score(hyphenated: &str, candidate: &str) -> u32 {
     let hyphenated_points = get_hyphen_points(hyphenated);
     let candidate_points = get_hyphen_points(candidate);
     
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn test_transform() {
         for (hyphenated, target) in get_test_cases() {
-            let result = transform(hyphenated, target);
+            let result = transform(hyphenated, target, |candidates, _| candidates[0].clone());
             println!("Input: {} -> {}", hyphenated, target);
             println!("Output: {}\n", result);
         }

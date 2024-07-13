@@ -292,6 +292,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "transform_hyphens"
+version = "0.1.0"
+dependencies = [
+ "dashmap",
+ "itertools",
+ "phf",
+ "rayon",
+ "serde",
+ "serde_json",
+ "translit",
+ "triple_accel",
+]
+
+[[package]]
 name = "translit"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -372,17 +386,3 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
-
-[[package]]
-name = "wlh2ipawlh"
-version = "0.1.0"
-dependencies = [
- "dashmap",
- "itertools",
- "phf",
- "rayon",
- "serde",
- "serde_json",
- "translit",
- "triple_accel",
-]

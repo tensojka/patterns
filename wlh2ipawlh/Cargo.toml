@@ -1,7 +1,15 @@
 [package]
-name = "wlh2ipawlh"
+name = "transform_hyphens"
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+name = "wlh2ipawlh"
+path = "src/wlh2ipawlh.rs"
+
+[[bin]]
+name = "ipawlh2wlh"
+path = "src/ipawlh2wlh.rs"
 
 [dependencies]
 rayon = "1.5"
