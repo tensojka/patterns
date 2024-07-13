@@ -2,7 +2,7 @@
 use triple_accel::levenshtein::levenshtein_simd_k_str;
 use phf::phf_map;
 use itertools::Itertools;
-use std::collections::{HashSet};
+use std::collections::HashSet;
 use rayon::prelude::*;
 
 // Also contains mappings from various characters to ASCII, to ease similarity computations
@@ -17,6 +17,11 @@ static IPA_ASCII_TABLE: phf::Map<char, char> = phf_map! {
     'ʒ' => 'z',
     'ɛ' => 'e',
     'š' => 's',
+    'á' => 'a',
+    'é' => 'e',
+    'í' => 'i',
+    'ó' => 'o',
+    'ý' => 'i',
 };
 
 fn ipa_to_ascii(s: &str) -> String {

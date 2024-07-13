@@ -1,11 +1,10 @@
-use std::env;
-use std::fs::{self, File};
+use std::{env, fs};
+use std::fs::File;
 use std::io::{self, BufRead, BufReader, Read, Write, BufWriter};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use serde_json;
 use transform_hyphens::transform::{calculate_jaro_like_score, transform};
-use transform_hyphens::get_language;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::HashMap;
 use translit::{Transliterator, gost779b_ua};
@@ -17,7 +16,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 use rayon::prelude::*;
 use std::mem;
-
+use transform_hyphens::utils::get_language;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 static TIE_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -152,6 +151,18 @@ fn create_espeak_tiebreaker(language: String, ipa_map: Arc<DashMap<String, Strin
     }
 }
 
+pub fn load_ipa_map(ipa_file: &Path) -> Arc<DashMap<String, String>> {
+    let ipa_map = Arc::new(DashMap::new());
+    if ipa_file.exists() {
+        let json = fs::read_to_string(ipa_file).expect("Failed to read IPA cache file");
+        let loaded_map: HashMap<String, String> = serde_json::from_str(&json).unwrap_or_else(|_| HashMap::new());
+        for (key, value) in loaded_map {
+            ipa_map.insert(key, value);
+        }
+    }
+    ipa_map
+}
+
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
@@ -172,15 +183,7 @@ fn main() -> std::io::Result<()> {
     println!("Processing words:");
     let out_file = Arc::new(Mutex::new(File::create(output_file)?));
     let ipa_file = Path::new("work").join("ipacache").join(format!("{}.json", language.replace('/', "-")));
-
-    let ipa_map = Arc::new(DashMap::new());
-    if ipa_file.exists() {
-        let json = fs::read_to_string(&ipa_file)?;
-        let loaded_map: HashMap<String, String> = serde_json::from_str(&json).unwrap_or_else(|_| HashMap::new());
-        for (key, value) in loaded_map {
-            ipa_map.insert(key, value);
-        }
-    }
+    let ipa_map = load_ipa_map(&ipa_file);
 
     // Spawn a new thread for periodic cache saving
     let ipa_map_clone = Arc::clone(&ipa_map);
