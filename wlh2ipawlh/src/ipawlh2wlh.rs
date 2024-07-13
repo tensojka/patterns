@@ -7,38 +7,33 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use transform_hyphens::transform::{calculate_jaro_like_score, transform};
+use transform_hyphens::utils::{get_espeak_ipa_batch, get_language};
 use rayon::prelude::*;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 const BATCH_SIZE: usize = 500;
 
-fn process_word_batch(words: &[String], ipa_map: &HashMap<String, String>) -> Vec<String> {
+fn process_word_batch(words: &[String], ipa_map: &HashMap<String, String>, language: &str) -> Vec<String> {
     words.iter().map(|word| {
         let stripped_word = word.replace("-", "");
         let ipa = ipa_map.get(&stripped_word)
             .unwrap_or_else(|| panic!("IPA not found for word: {}", stripped_word))
             .clone();
         
-        let result = transform(word, &ipa, &ipacache_human_tiebreaker(ipa_map));
+        let result = transform(word, &ipa, &ipacache_human_tiebreaker(language));
         WORD_COUNT.fetch_add(1, Ordering::Relaxed);
         result
     }).collect()
 }
 
-fn ipacache_human_tiebreaker(ipa_map: &HashMap<String, String>) -> impl Fn(&[String], &str) -> String + '_ {
+fn ipacache_human_tiebreaker(language: &str) -> impl Fn(&[String], &str) -> String + '_ {
     move |candidates: &[String], original_hyphenated: &str| {
-        let original_parts: Vec<&str> = original_hyphenated.split('-').collect();
         
         let scores: Vec<(String, u32)> = candidates.iter().map(|candidate| {
-            let candidate_parts: Vec<&str> = candidate.split('-').collect();
-            let frankenstein_candidate: String = candidate_parts.iter()
-                .map(|&part| ipa_map.get(part).unwrap_or(&part.to_string()).clone())
-                .collect::<Vec<String>>()
-                .join("-");
+            let candidate_in_parts: Vec<String> = candidate.split('-').map(String::from).collect();
+            let ipa_candidate = get_espeak_ipa_batch(&candidate_in_parts, language).join("-");
             
-            let score = original_parts.iter().zip(frankenstein_candidate.split('-'))
-                .map(|(&orig, cand)| calculate_jaro_like_score(orig, cand))
-                .sum();
+            let score = calculate_jaro_like_score(original_hyphenated, &ipa_candidate);
             
             (candidate.to_string(), score)
         }).collect();
@@ -123,9 +118,10 @@ fn main() -> std::io::Result<()> {
     println!("Processing words:");
     let out_file = Arc::new(Mutex::new(File::create(output_file)?));
     let ipa_map = load_ipa_maps();
+    let language = get_language(input_file);
 
     words.par_chunks(BATCH_SIZE).for_each(|chunk| {
-        let batch_results = process_word_batch(chunk, &ipa_map);
+        let batch_results = process_word_batch(chunk, &ipa_map, &language);
         
         let mut file_guard = out_file.lock().unwrap();
         // Transformed word here is hyphenated word in latin/cyrillic/whatever
