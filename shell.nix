@@ -1,4 +1,5 @@
 { pkgs ? import <nixpkgs> {} }:
+# Note: wikiextractor requires Python 3.9
 
 let
   python39 = pkgs.python39;
@@ -17,6 +18,8 @@ let
   python39WithPackages = python39.withPackages (ps: [ wikiextractor ]);
   python312WithPackages = python312.withPackages (ps: with ps; [ regex ]);
 
+  texliveWithPackages = pkgs.texlive.withPackages (ps: [ ps.patgen ]);
+
 in pkgs.mkShell {
   buildInputs = with pkgs; [
     rustc
@@ -24,6 +27,7 @@ in pkgs.mkShell {
     espeak
     python39WithPackages
     python312WithPackages
+    texliveWithPackages
   ];
 
   shellHook = ''
