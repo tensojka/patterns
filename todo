@@ -1,3 +1,3 @@
-- podivat se na prekryvy mezi znaky, ktere jsou pouzity pri generovani IPA z CJ a z PL a dalsich jazyku. lze je nejak spojit dohromady a udelat nadmnozinu?
-- vymyslet a naimplementovat algoritmus na doplneni spojovniku, dostane jedno slovo bez spojovniku
-reverse transliterace je jednoducha: pri kazde transliteraci si ulozim vstup a budu mit proste mapovani. jinak by melo jit o edge cases.
+- acquire Wielki słownik ortograficzny PWN : z zasadami pisowni i interpunkcji / opracowanie zasad pisowni i interpunkcji
+- vymyslet tagovani pro generovani all.ipa.wlh
+- podivat se kolik patgen zvladne max slov

@@ -11,7 +11,7 @@ def has_forbidden_character(string):
 
 def parse_frqwl(filename, minfreq=0):
     if minfreq == None:
-        minfreq = 100
+        minfreq = 50
     wl = set()
     with open(filename) as inpf:
         ln = 0

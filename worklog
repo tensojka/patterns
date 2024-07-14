@@ -56,3 +56,7 @@ nix-user-chroot /var/tmp/xsojka/.nix bash
 . /home/xsojka/.nix-profile/etc/profile.d/nix.sh
 cd data/patterns
 nix-shell
+
+---
+
+srbochorvatština má Hifenacia ve Wikislovníku
