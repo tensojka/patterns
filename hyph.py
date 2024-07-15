@@ -69,7 +69,7 @@ class Hyphenator:
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python hyphenator.py <patterns_file.tex> <text_file.txt>")
+        print("Usage: python hyph.py <patterns_file.tex> <text_file.txt>")
         sys.exit(1)
 
     patterns_file = sys.argv[1]
