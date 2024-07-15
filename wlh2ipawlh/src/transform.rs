@@ -1,9 +1,8 @@
-//use rapidfuzz::distance::indel::{distance_with_args, Args};
-use triple_accel::levenshtein::levenshtein_simd_k_str;
 use phf::phf_map;
 use itertools::Itertools;
 use std::collections::HashSet;
 use rayon::prelude::*;
+use crate::utils::get_best_levenshtein;
 
 // Also contains mappings from various characters to ASCII, to ease similarity computations
 static IPA_ASCII_TABLE: phf::Map<char, char> = phf_map! {
@@ -72,26 +71,17 @@ where
         })
         .collect();
 
-    let best_jaro_score = candidates.par_iter().map(|(_, score)| *score).max().unwrap_or(0);
+    let best_jaro_score = candidates.iter().map(|(_, score)| *score).max().unwrap_or(0);
     let best_candidates: Vec<String> = candidates.into_iter()
         .filter(|(_, score)| *score == best_jaro_score)
         .map(|(candidate, _)| candidate)
         .collect();
 
-    let mut best_levenshtein_distance = usize::MAX;
-    let mut best_levenshtein_candidates: Vec<String> = Vec::new();
+    let ascii_candidates: Vec<String> = best_candidates.iter()
+        .map(|candidate| ipa_to_ascii(candidate))
+        .collect();
 
-    for candidate in best_candidates {
-        let ascii_candidate = ipa_to_ascii(&candidate);
-        if let Some(distance) = levenshtein_simd_k_str(&ascii_hyphenated, &ascii_candidate, best_levenshtein_distance as u32) {
-            if distance < best_levenshtein_distance as u32 {
-                best_levenshtein_distance = distance as usize;
-                best_levenshtein_candidates = vec![candidate];
-            } else if distance == best_levenshtein_distance as u32 {
-                best_levenshtein_candidates.push(candidate);
-            }
-        }
-    }
+    let best_levenshtein_candidates = get_best_levenshtein(&ascii_candidates, &ascii_hyphenated);
 
     if best_levenshtein_candidates.len() > 1 {
         tiebreaker(&best_levenshtein_candidates, hyphenated)
