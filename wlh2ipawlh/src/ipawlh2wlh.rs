@@ -11,6 +11,7 @@ use transform_hyphens::utils::{get_espeak_ipa_batch, get_language};
 use rayon::prelude::*;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
+static TIE_COUNT: AtomicUsize = AtomicUsize::new(0);
 const BATCH_SIZE: usize = 500;
 
 fn process_word_batch(words: &[String], ipa_map: &HashMap<String, String>, language: &str) -> Vec<String> {
@@ -28,7 +29,6 @@ fn process_word_batch(words: &[String], ipa_map: &HashMap<String, String>, langu
 
 fn ipacache_human_tiebreaker(language: &str) -> impl Fn(&[String], &str) -> String + '_ {
     move |candidates: &[String], original_hyphenated: &str| {
-        
         let scores: Vec<(String, u32)> = candidates.iter().map(|candidate| {
             let candidate_in_parts: Vec<String> = candidate.split('-').map(String::from).collect();
             let ipa_candidate = get_espeak_ipa_batch(&candidate_in_parts, language).join("-");
@@ -47,12 +47,13 @@ fn ipacache_human_tiebreaker(language: &str) -> impl Fn(&[String], &str) -> Stri
         if best_candidates.len() == 1 {
             best_candidates[0].clone()
         } else {
-            human_tiebreaker(&best_candidates, original_hyphenated)
+            TIE_COUNT.fetch_add(1, Ordering::Relaxed);
+            "".to_string()
         }
     }
 }
 
-fn human_tiebreaker(candidates: &[String], original_hyphenated: &str) -> String {
+/*fn human_tiebreaker(candidates: &[String], original_hyphenated: &str) -> String {
     println!("Tiebreaker needed for: {}", original_hyphenated);
     println!("Candidates:");
     for (i, candidate) in candidates.iter().enumerate() {
@@ -65,7 +66,7 @@ fn human_tiebreaker(candidates: &[String], original_hyphenated: &str) -> String 
     
     let choice: usize = input.trim().parse().expect("Please enter a number");
     candidates[choice - 1].clone()
-}
+}*/
 
 pub fn load_ipa_maps() -> HashMap<String, String> {
     let mut ipa_map = HashMap::new();
@@ -129,6 +130,16 @@ fn main() -> std::io::Result<()> {
             writeln!(file_guard, "{}", transformed_word).unwrap();
         }
     });
+
+    let total_words = WORD_COUNT.load(Ordering::Relaxed);
+    let tied_words = TIE_COUNT.load(Ordering::Relaxed);
+    let processed_words = total_words - tied_words;
+
+    println!("\nProcessing complete:");
+    println!("Total words: {}", total_words);
+    println!("Processed words: {}", processed_words);
+    println!("Tied words (first candidate selected): {}", tied_words);
+    println!("Tie percentage: {:.2}%", (tied_words as f64 / total_words as f64) * 100.0);
 
     Ok(())
 }
