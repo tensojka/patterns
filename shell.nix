@@ -28,6 +28,7 @@ in pkgs.mkShell {
     python39WithPackages
     python312WithPackages
     texliveWithPackages
+    libiconv
   ];
 
   shellHook = ''
