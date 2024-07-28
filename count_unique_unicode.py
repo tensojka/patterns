@@ -16,3 +16,23 @@ if __name__ == "__main__":
         print("usage: python script.py <filename>")
     else:
         count_unique_unicode_chars_in_file(sys.argv[1])
+
+def count_unique_chars(file1, file2):
+    def read_chars(file):
+        with open(file, 'rb') as f:
+            all_bytes = set(f.read())
+            filtered_bytes = set(byte for byte in all_bytes if byte > 162)
+            return all_bytes, filtered_bytes
+
+    all_chars1, chars1 = read_chars(file1)
+    all_chars2, chars2 = read_chars(file2)
+
+    unique_to_file1 = chars1 - chars2
+    unique_to_file2 = chars2 - chars1
+
+    print(f"Total unique bytes in {file1}: {len(all_chars1)}")
+    print(f"Total unique bytes in {file2}: {len(all_chars2)}")
+    print(f"Bytes > 162 unique to {file1}: {len(unique_to_file1)}")
+    print(f"Bytes > 162 unique to {file2}: {len(unique_to_file2)}")
+    print(f"Unique to {file1}: {', '.join(map(str, sorted(unique_to_file1)))}")
+    print(f"Unique to {file2}: {', '.join(map(str, sorted(unique_to_file2)))}")
