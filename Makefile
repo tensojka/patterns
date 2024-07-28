@@ -39,7 +39,7 @@ work/cs.wlh: work/cs.wls
 	"1 1" \
 	"1 1 1" \
 	"y" \
-	| ./patgen $< ~/cshyphen/csskhyphen.pat /dev/null ~/cshyphen/czech.tra
+	| patgen $< ~/cshyphen/csskhyphen.pat /dev/null ~/cshyphen/czech.tra
 	mv pattmp.1 $@
 	recode ISO-8859-2..UTF8 $<
 	recode ISO-8859-2..UTF8 $@
@@ -53,7 +53,7 @@ work/%.wlh: work/%.wls
 	"1 1" \
 	"1 1 1" \
 	"y" \
-	| ./patgen $< work/hyph-$*.tex /dev/null work/hyph-$*.tra
+	| patgen $< work/hyph-$*.tex /dev/null work/hyph-$*.tra
 	mv pattmp.1 $@
 	sed -i -e 's/\./-/g' $@
 
