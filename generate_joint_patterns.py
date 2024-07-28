@@ -6,6 +6,7 @@ from collections import OrderedDict
 from typing import List
 import subprocess
 import os
+import shutil
 
 TEMP_WORKDIR_PREFIX = '/var/tmp/ipa-patterns/'
 
@@ -90,9 +91,9 @@ def train_joint_patterns(joint_ipa_file, translate_file, params_file, output_fil
         
         pattern_final = os.path.join(output_dir, 'pattern.final')
         if os.path.exists(pattern_final):
-            # Move the pattern.final file to the specified output file
-            os.rename(pattern_final, output_file)
-            print(f"Pattern file generated and moved to: {output_file}")
+            # Copy the pattern.final file to the specified output file
+            shutil.copy2(pattern_final, output_file)
+            print(f"Pattern file generated and copied to: {output_file}")
         else:
             print("Error: pattern.final was not generated", file=sys.stderr)
         
@@ -108,8 +109,7 @@ def merge_ipa_files(ipa_filenames, weights: List[int], output_filename: str):
             try:
                 with open(ipa_filename, 'r', encoding='utf-8') as input_file:
                     for line in input_file:
-                        if line.strip():  # Check if line is not empty
-                            if not line.startswith('('):
+                        if line.strip() and '(' not in line:  # espeak sometimes put (en) tags in and tries to be smart
                                 output_file.write(f"{line}")  # TODO add back {weight} 
                 output_file.write('\n')  # Add a newline between files
             except FileNotFoundError:
@@ -117,7 +117,7 @@ def merge_ipa_files(ipa_filenames, weights: List[int], output_filename: str):
             except Exception as e:
                 print(f"An error occurred while processing {ipa_filename}: {e}")
 
-def generate_joint_patterns(ipa_filenames, weights, output_filename):
+def generate_joint_patterns(ipa_filenames, weights, output_filename, params_filename):
     # Merge the .ipa.wlh files into a single .ipa.wlh file
     joint_ipa_file = TEMP_WORKDIR_PREFIX + 'joint.ipa.wlh'
     encoded_ipa_file = TEMP_WORKDIR_PREFIX + 'joint.ipa.patenc.wlh'
@@ -130,19 +130,29 @@ def generate_joint_patterns(ipa_filenames, weights, output_filename):
     generate_translate_file(translation_dict, translate_filename)
 
     # Train joint patterns on the encoded .ipa.wlh file
-    params_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parameters', 'ipa-sojka-sizeoptimized.par')
+    params_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parameters', params_filename)
     train_joint_patterns(encoded_ipa_file, translate_filename, params_file, output_filename)
 
     return translation_dict
 
 if __name__ == "__main__":
-    ipa_files = ["work/cs.ipa.wlh", "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh"]
-    weights = [3, 1, 1, 1]
+    ipa_files = ["work/cs.ipa.wlh"]#, "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/sh.ipa.wlh"]
+    weights = [2]#[9, 1, 1, 1, 1]
     output_file = "work/all.pat"
     encoded_output_file = "work/all.pat.enc"
     
-    translation_dict = generate_joint_patterns(ipa_files, weights, encoded_output_file)
+    translation_dict = generate_joint_patterns(ipa_files, weights, encoded_output_file, 'ipa-sojka-correctoptimized.par')
     print(translation_dict)
     # Decode the pattern file
     decode_pattern_file(encoded_output_file, output_file, {v: k for k, v in translation_dict.items()})
-    print(f"Decoded pattern file saved to: {output_file}")
+    # Check if pattmp.4 exists in patgen working directory
+    patgen_pattmp4 = os.path.join(TEMP_WORKDIR_PREFIX, 'out/pattmp.4')
+    if os.path.exists(patgen_pattmp4):
+        # Define the target file in the main working directory
+        main_pattmp4 = os.path.join('work', 'pattmp.4')
+        
+        # Use decode_pattern_file to convert and save the file
+        decode_pattern_file(patgen_pattmp4, main_pattmp4, {v: k for k, v in translation_dict.items()})
+        
+        print(f"Converted pattmp.4 saved to: {main_pattmp4}")
+    print(f"Joint IPA patterns saved to: {output_file}")
