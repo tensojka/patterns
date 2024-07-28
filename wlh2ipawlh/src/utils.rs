@@ -12,6 +12,8 @@ pub fn get_language(filename: &str) -> &'static str {
         "zlw/sk"
     } else if lowercase_filename.contains("uk") {
         "zle/uk"
+    } else if lowercase_filename.contains("ru") {
+        "zle/ru"
     } else if lowercase_filename.contains("sl") {
         "zls/sl"
     } else if lowercase_filename.contains("sh"){

@@ -6,7 +6,7 @@ use serde_json;
 use transform_hyphens::transform::{calculate_jaro_like_score, transform};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::HashMap;
-use translit::{Transliterator, gost779b_ua};
+use translit::{Transliterator, ToLatin, gost779b_ua, gost779b_ru};
 use std::time::{Duration, Instant};
 use std::thread;
 use dashmap::DashMap;
@@ -25,13 +25,20 @@ const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5
 
 fn transliterate_ukrainian(input: &str) -> String {
     let tr = Transliterator::new(gost779b_ua());
-    input.chars().flat_map(|c| {
-        if c == '-' {
-            vec![c]
-        } else {
-            tr.convert(&c.to_string(), false).chars().collect::<Vec<char>>()
-        }
-    }).collect()
+    input // Keep hyphens unchanged
+         .split('-')
+         .map(|part| tr.to_latin(part)) // Apply transliteration to each part
+         .collect::<Vec<String>>()
+         .join("-") // Join parts back with hyphens
+}
+
+fn transliterate_russian(input: &str) -> String {
+    let tr = Transliterator::new(gost779b_ru());
+    input // Keep hyphens unchanged
+         .split('-')
+         .map(|part| tr.to_latin(part)) // Apply transliteration to each part
+         .collect::<Vec<String>>()
+         .join("-") // Join parts back with hyphens
 }
 
 fn process_word_batch(words: &[String], language: &str, ipa_map: Arc<DashMap<String, String>>) -> Vec<(String, String, String)> {
@@ -64,6 +71,8 @@ fn process_word_batch(words: &[String], language: &str, ipa_map: Arc<DashMap<Str
     results.into_iter().map(|(hyphenated_word, stripped_word, ipa_word)| {
         let transliterated_hyphenated = if language == "zle/uk" {
             transliterate_ukrainian(&hyphenated_word)
+        } else if language == "zle/ru" {
+            transliterate_russian(&hyphenated_word)
         } else {
             hyphenated_word.clone()
         };
@@ -111,7 +120,10 @@ fn create_espeak_tiebreaker(language: String, ipa_map: Arc<DashMap<String, Strin
             })
             .max_by_key(|&(_, score)| score)
             .map(|(candidate, _)| candidate.to_string())
-            .unwrap_or_else(|| candidates[0].clone())
+            .unwrap_or_else(|| {
+                TIE_COUNT.fetch_add(1, Ordering::Relaxed);
+                candidates[0].clone()
+            })
     }
 }
 
