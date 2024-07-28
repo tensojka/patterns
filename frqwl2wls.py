@@ -9,10 +9,10 @@ def has_forbidden_character(string):
         return True
     return False
 
-def parse_frqwl(filename, minfreq=0):
-    if minfreq == None:
-        minfreq = 50
+def parse_frqwl(filename, minfreq=50):
     wl = set()
+    if minfreq is None:
+        minfreq = 50
     with open(filename) as inpf:
         ln = 0
 
@@ -25,8 +25,8 @@ def parse_frqwl(filename, minfreq=0):
                     wl.add(split[0])
             except IndexError:
                 raise ValueError("Invalid format of "+filename+" on line "+str(ln))
-            except TypeError:
-                print(int(split[1]))
+#            except TypeError:
+#                print(int(split[1]))
             ln += 1
     return wl
 
