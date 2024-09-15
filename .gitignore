@@ -1,6 +1,6 @@
 work/
 
-
+.DS_Store
 # Follows standard Python gitignore
 
 # Byte-compiled / optimized / DLL files
