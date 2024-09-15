@@ -74,7 +74,11 @@ fn process_word_batch(words: &[String], language: &str, ipa_map: Arc<DashMap<Str
             println!("Warning: Empty IPA for word: {}", hyphenated_word);
             (hyphenated_word, stripped_word, ipa_word)
         } else {
-            let result = transform(&transliterated_hyphenated, &ipa_word);
+            let result = if hyphenated_word.contains('-') {
+                transform(&transliterated_hyphenated, &ipa_word)
+            } else {
+                ipa_word.clone()
+            };
             WORD_COUNT.fetch_add(1, Ordering::Relaxed);
             (result, stripped_word, ipa_word)
         }
@@ -155,7 +159,9 @@ fn main() -> std::io::Result<()> {
         // Write transformed words to file
         let mut file_guard = out_file.lock().unwrap();
         for (transformed_word, stripped_word, ipa_word) in batch_results {
-            writeln!(file_guard, "{}", transformed_word).unwrap();
+            if !transformed_word.contains("(") { // FIXME – ignoring all that start with (en)
+               writeln!(file_guard, "{}", transformed_word).unwrap();
+            }
             
             // Update IPA map
             ipa_map.insert(stripped_word, ipa_word);
