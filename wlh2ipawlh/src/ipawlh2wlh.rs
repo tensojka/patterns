@@ -6,67 +6,24 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use transform_hyphens::transform::{calculate_jaro_like_score, transform};
-use transform_hyphens::utils::{get_espeak_ipa_batch, get_language};
+use transform_hyphens::transform::transform;
 use rayon::prelude::*;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
-static TIE_COUNT: AtomicUsize = AtomicUsize::new(0);
 const BATCH_SIZE: usize = 500;
 
-fn process_word_batch(words: &[String], ipa_map: &HashMap<String, String>, language: &str) -> Vec<String> {
+fn process_word_batch(words: &[String], ipa_map: &HashMap<String, String>) -> Vec<String> {
     words.iter().map(|word| {
         let stripped_word = word.replace("-", "");
         let ipa = ipa_map.get(&stripped_word)
             .unwrap_or_else(|| panic!("IPA not found for word: {}", stripped_word))
             .clone();
         
-        let result = transform(word, &ipa, &ipacache_human_tiebreaker(language));
+        let result = transform(word, &ipa);
         WORD_COUNT.fetch_add(1, Ordering::Relaxed);
         result
     }).collect()
 }
-
-fn ipacache_human_tiebreaker(language: &str) -> impl Fn(&[String], &str) -> String + '_ {
-    move |candidates: &[String], original_hyphenated: &str| {
-        let scores: Vec<(String, u32)> = candidates.iter().map(|candidate| {
-            let candidate_in_parts: Vec<String> = candidate.split('-').map(String::from).collect();
-            let ipa_candidate = get_espeak_ipa_batch(&candidate_in_parts, language).join("-");
-            
-            let score = calculate_jaro_like_score(original_hyphenated, &ipa_candidate);
-            
-            (candidate.to_string(), score)
-        }).collect();
-
-        let max_score = scores.iter().map(|(_, score)| *score).max().unwrap_or(0);
-        let best_candidates: Vec<String> = scores.into_iter()
-            .filter(|(_, score)| *score == max_score)
-            .map(|(candidate, _)| candidate)
-            .collect();
-
-        if best_candidates.len() == 1 {
-            best_candidates[0].clone()
-        } else {
-            TIE_COUNT.fetch_add(1, Ordering::Relaxed);
-            "".to_string()
-        }
-    }
-}
-
-/*fn human_tiebreaker(candidates: &[String], original_hyphenated: &str) -> String {
-    println!("Tiebreaker needed for: {}", original_hyphenated);
-    println!("Candidates:");
-    for (i, candidate) in candidates.iter().enumerate() {
-        println!("{}. {}", i + 1, candidate);
-    }
-
-    let mut input = String::new();
-    println!("Enter the number of your choice:");
-    std::io::stdin().read_line(&mut input).expect("Failed to read line");
-    
-    let choice: usize = input.trim().parse().expect("Please enter a number");
-    candidates[choice - 1].clone()
-}*/
 
 pub fn load_ipa_maps() -> HashMap<String, String> {
     let mut ipa_map = HashMap::new();
@@ -98,9 +55,9 @@ fn main() -> std::io::Result<()> {
     let output_file = &args[2];
 
     let words: Vec<String> = BufReader::new(File::open(input_file)?)
-    .lines()
-    .filter_map(Result::ok)
-    .collect();
+        .lines()
+        .filter_map(Result::ok)
+        .collect();
 
     // Create an Arc to share the static WORD_COUNT across threads
     let shared_word_count = Arc::new(&WORD_COUNT);
@@ -119,27 +76,20 @@ fn main() -> std::io::Result<()> {
     println!("Processing words:");
     let out_file = Arc::new(Mutex::new(File::create(output_file)?));
     let ipa_map = load_ipa_maps();
-    let language = get_language(input_file);
 
     words.par_chunks(BATCH_SIZE).for_each(|chunk| {
-        let batch_results = process_word_batch(chunk, &ipa_map, &language);
+        let batch_results = process_word_batch(chunk, &ipa_map);
         
         let mut file_guard = out_file.lock().unwrap();
-        // Transformed word here is hyphenated word in latin/cyrillic/whatever
         for transformed_word in batch_results {
             writeln!(file_guard, "{}", transformed_word).unwrap();
         }
     });
 
     let total_words = WORD_COUNT.load(Ordering::Relaxed);
-    let tied_words = TIE_COUNT.load(Ordering::Relaxed);
-    let processed_words = total_words - tied_words;
 
     println!("\nProcessing complete:");
-    println!("Total words: {}", total_words);
-    println!("Processed words: {}", processed_words);
-    println!("Tied words (first candidate selected): {}", tied_words);
-    println!("Tie percentage: {:.2}%", (tied_words as f64 / total_words as f64) * 100.0);
+    println!("Total words processed: {}", total_words);
 
     Ok(())
 }

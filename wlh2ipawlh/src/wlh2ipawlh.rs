@@ -3,7 +3,7 @@ use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write, BufWriter};
 use std::path::Path;
 use serde_json;
-use transform_hyphens::transform::{calculate_jaro_like_score, transform};
+use transform_hyphens::transform::transform;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::HashMap;
 use translit::{Transliterator, ToLatin, gost779b_ua, gost779b_ru};
@@ -14,31 +14,27 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use serde::Serialize;
 use rayon::prelude::*;
-use std::mem;
 use transform_hyphens::utils::{get_language, get_espeak_ipa_batch};
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
-static TIE_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 const BATCH_SIZE: usize = 500;
 const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5 minutes
 
 fn transliterate_ukrainian(input: &str) -> String {
     let tr = Transliterator::new(gost779b_ua());
-    input // Keep hyphens unchanged
-         .split('-')
-         .map(|part| tr.to_latin(part)) // Apply transliteration to each part
+    input.split('-')
+         .map(|part| tr.to_latin(part))
          .collect::<Vec<String>>()
-         .join("-") // Join parts back with hyphens
+         .join("-")
 }
 
 fn transliterate_russian(input: &str) -> String {
     let tr = Transliterator::new(gost779b_ru());
-    input // Keep hyphens unchanged
-         .split('-')
-         .map(|part| tr.to_latin(part)) // Apply transliteration to each part
+    input.split('-')
+         .map(|part| tr.to_latin(part))
          .collect::<Vec<String>>()
-         .join("-") // Join parts back with hyphens
+         .join("-")
 }
 
 fn process_word_batch(words: &[String], language: &str, ipa_map: Arc<DashMap<String, String>>) -> Vec<(String, String, String)> {
@@ -65,8 +61,6 @@ fn process_word_batch(words: &[String], language: &str, ipa_map: Arc<DashMap<Str
         }
     }
 
-    let tiebreaker = create_espeak_tiebreaker(language.to_string(), Arc::clone(&ipa_map));
-
     // Process results
     results.into_iter().map(|(hyphenated_word, stripped_word, ipa_word)| {
         let transliterated_hyphenated = if language == "zle/uk" {
@@ -80,51 +74,11 @@ fn process_word_batch(words: &[String], language: &str, ipa_map: Arc<DashMap<Str
             println!("Warning: Empty IPA for word: {}", hyphenated_word);
             (hyphenated_word, stripped_word, ipa_word)
         } else {
-            let result = transform(&transliterated_hyphenated, &ipa_word, &tiebreaker);
+            let result = transform(&transliterated_hyphenated, &ipa_word);
             WORD_COUNT.fetch_add(1, Ordering::Relaxed);
             (result, stripped_word, ipa_word)
         }
     }).collect()
-}
-
-fn create_espeak_tiebreaker(language: String, ipa_map: Arc<DashMap<String, String>>) -> impl Fn(&[String], &str) -> String {
-    move |candidates: &[String], original_hyphenated: &str| {
-        let original_parts: Vec<&str> = original_hyphenated.split('-').collect();
-        let mut words_to_process = Vec::new();
-        let mut original_ipa_parts = Vec::with_capacity(original_parts.len());
-
-        for &part in &original_parts {
-            if let Some(ipa) = ipa_map.get(part) {
-                original_ipa_parts.push(ipa.clone());
-            } else {
-                words_to_process.push(part.to_string());
-                original_ipa_parts.push(String::new()); // Placeholder for IPA to be filled later
-            }
-        }
-
-        if !words_to_process.is_empty() {
-            let new_ipas = get_espeak_ipa_batch(&words_to_process, &language);
-            for (part, ipa) in words_to_process.into_iter().zip(new_ipas) {
-                ipa_map.insert(part.clone(), ipa.clone());
-                original_ipa_parts[original_parts.iter().position(|&p| p == part).unwrap()] = ipa;
-            }
-        }
-
-        candidates.iter()
-            .map(|candidate| {
-                let candidate_parts: Vec<&str> = candidate.split('-').collect();
-                let score = original_ipa_parts.iter().zip(candidate_parts.iter())
-                    .map(|(orig_ipa, cand)| calculate_jaro_like_score(orig_ipa, cand))
-                    .sum::<u32>();
-                (candidate, score)
-            })
-            .max_by_key(|&(_, score)| score)
-            .map(|(candidate, _)| candidate.to_string())
-            .unwrap_or_else(|| {
-                TIE_COUNT.fetch_add(1, Ordering::Relaxed);
-                candidates[0].clone()
-            })
-    }
 }
 
 pub fn load_ipa_map(ipa_file: &Path) -> Arc<DashMap<String, String>> {
@@ -209,14 +163,9 @@ fn main() -> std::io::Result<()> {
     });
 
     let total_words = WORD_COUNT.load(Ordering::Relaxed);
-    let tied_words = TIE_COUNT.load(Ordering::Relaxed);
-    let processed_words = total_words - tied_words;
 
     println!("\nProcessing complete:");
-    println!("Total words: {}", total_words);
-    println!("Processed words: {}", processed_words);
-    println!("Tied words (skipped): {}", tied_words);
-    println!("Tie percentage: {:.2}%", (tied_words as f64 / total_words as f64) * 100.0);
+    println!("Total words processed: {}", total_words);
 
     // Final cache save
     save_ipa_cache(&ipa_map, &ipa_file)?;
@@ -233,9 +182,6 @@ fn save_ipa_cache(ipa_map: &DashMap<String, String>, ipa_file: &Path) -> std::io
     let regular_map: HashMap<String, String> = ipa_map.iter().map(|entry| (entry.key().clone(), entry.value().clone())).collect();
     
     regular_map.serialize(&mut serializer)?;
-    
-    // Explicitly drop the regular_map to free memory
-    mem::drop(regular_map);
     
     println!("\nSaved IPA cache to {:?}", ipa_file);
     Ok(())
