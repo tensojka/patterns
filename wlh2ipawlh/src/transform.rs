@@ -50,32 +50,31 @@ where
     F: Fn(&[String], &str) -> String
 {
     let num_hyphens = get_hyphen_points(hyphenated).len();
-    let possible_positions: Vec<usize> = (1..target.len()).collect();
     let ascii_hyphenated = ipa_to_ascii(hyphenated);
 
-    // Generate all combinations first
-    let combinations: Vec<Vec<usize>> = possible_positions.clone().into_iter()
-        .combinations(num_hyphens)
+    // Generate combinations on-the-fly instead of storing them all
+    let combinations = (1..target.len()).combinations(num_hyphens)
         .filter(|hyphen_positions| {
             hyphen_positions.first() != Some(&0) && hyphen_positions.last() != Some(&(target.len() - 1))
-        })
-        .collect();
+        });
 
-    // First pass: Calculate Jaro-like scores in parallel
-    let candidates: Vec<(String, u32)> = combinations.par_iter()
-        .map(|hyphen_positions| {
-            let candidate = insert_hyphens(target, hyphen_positions);
-            let ascii_candidate = ipa_to_ascii(&candidate);
-            let jaro_score = calculate_jaro_like_score(&ascii_hyphenated, &ascii_candidate);
-            (candidate, jaro_score)
-        })
-        .collect();
+    // Use an iterator to avoid storing all candidates in memory
+    let mut best_jaro_score = 0;
+    let mut best_candidates = Vec::new();
 
-    let best_jaro_score = candidates.iter().map(|(_, score)| *score).max().unwrap_or(0);
-    let best_candidates: Vec<String> = candidates.into_iter()
-        .filter(|(_, score)| *score == best_jaro_score)
-        .map(|(candidate, _)| candidate)
-        .collect();
+    for hyphen_positions in combinations {
+        let candidate = insert_hyphens(target, &hyphen_positions);
+        let ascii_candidate = ipa_to_ascii(&candidate);
+        let jaro_score = calculate_jaro_like_score(&ascii_hyphenated, &ascii_candidate);
+
+        if jaro_score > best_jaro_score {
+            best_jaro_score = jaro_score;
+            best_candidates.clear();
+            best_candidates.push(candidate);
+        } else if jaro_score == best_jaro_score {
+            best_candidates.push(candidate);
+        }
+    }
 
     let ascii_candidates: Vec<String> = best_candidates.iter()
         .map(|candidate| ipa_to_ascii(candidate))
@@ -88,7 +87,7 @@ where
     } else if let Some(best_candidate) = best_levenshtein_candidates.first() {
         best_candidate.clone()
     } else {
-        println!("No valid candidates found. Hyphenated: {}, Target: {}, Possible positions: {:?}", hyphenated, target, possible_positions);
+        println!("No valid candidates found. Hyphenated: {}, Target: {}", hyphenated, target);
         String::new()
     }
 }
