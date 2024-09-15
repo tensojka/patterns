@@ -1,11 +1,13 @@
 import subprocess
 import os
 from collections import OrderedDict
+from itertools import product
+from typing import Tuple
 
-TEMP_WORKDIR = '/var/tmp/evaluate/' 
+TEMP_WORKDIR = '/var/tmp/ipa-patterns/' 
 PARAMS = 'ipa-sojka-correctoptimized.par'
 
-def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_training_wordlist: str, language: str) -> (float, float, float):
+def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_training_wordlist: str, language: str) -> Tuple[float, float, float]:
     os.makedirs(TEMP_WORKDIR, exist_ok=True)
 
     # Use these IPA patterns to hyphenate a specific-language wordlist
@@ -165,21 +167,35 @@ def run_if_needed(cmd, source_file, target_file, description):
     else:
         print(f"Skipping {description}, target file is up to date.")
 
+def generate_weights_to_evaluate():
+    # Define the range of values for each weight
+    weight_ranges = [
+        (1, 5), # pl
+        (1, 5), # sk
+        (1, 5), # uk
+        (1, 5) # ru
+    ]
+    
+    # Generate all combinations of weights
+    weights_to_evaluate = list(product(*weight_ranges))
+    
+    # Optionally, limit the number of combinations if it's too large
+    max_combinations = 100  # Adjust this value based on your computational resources
+    if len(weights_to_evaluate) > max_combinations:
+        print("Cutting combinations")
+        weights_to_evaluate = weights_to_evaluate[:max_combinations]
+    
+    return weights_to_evaluate
+
 
 #evaluate_patterns("work/all.pat", "groundtruth/cs-ujc.wlh", "work/cs.ipa.wls", "cs")
 
 from typing import Dict, List, Tuple
 from generate_joint_patterns import generate_joint_patterns
 if __name__ == "__main__":
-    ipa_files = ["work/cs.ipa.wlh", "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/sh.ipa.wlh"]
+    ipa_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
     results: Dict[List[int], Tuple[int, int, int]] = {}
-    weights_to_evaluate = [
-        (1, 1, 1, 3, 9),
-        (2, 1, 2, 3, 9),
-        (1, 1, 1, 1, 1),
-        (1, 1, 1, 5, 9),
-        (1, 1, 1, 1, 9)
-    ]
+    weights_to_evaluate = generate_weights_to_evaluate()
     output_file = "work/all.pat"
     encoded_output_file = "work/all.pat.enc"
     for weights in weights_to_evaluate:
@@ -190,7 +206,7 @@ if __name__ == "__main__":
         decode_pattern_file(encoded_output_file, output_file, {v: k for k, v in translation_dict.items()})
         print(f"Joint IPA patterns saved to: {output_file}")
 
-        results[weights] = evaluate_patterns(output_file, "groundtruth/sh-wiktionary.wlh", "work/sh.ipa.wls", "sh")
+        results[weights] = evaluate_patterns(output_file, "groundtruth/uk-wiktionary.wlh", "work/uk.ipa.wls", "uk")
 
     import json
     import time

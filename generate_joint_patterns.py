@@ -52,6 +52,8 @@ def generate_translate_file(translation_dict, output_file):
         # Write ASCII lowercase letters (a-z)
         for ascii_char in range(ord('a'), ord('z') + 1):
             f.write(b" %c\n" % ascii_char)
+        f.write(b" ^\n")
+        f.write(b" \"\n")
         # Write the custom IPA characters
         for eight_bit in translation_dict.values():
             f.write(b" %c\n" % eight_bit)
@@ -108,9 +110,10 @@ def merge_ipa_files(ipa_filenames, weights: List[int], output_filename: str):
         for ipa_filename, weight in zip(ipa_filenames, weights):
             try:
                 with open(ipa_filename, 'r', encoding='utf-8') as input_file:
+                    output_file.write(f"{weight}\n")
                     for line in input_file:
-                        if line.strip() and '(' not in line:  # espeak sometimes put (en) tags in and tries to be smart
-                                output_file.write(f"{line}")  # TODO add back {weight} 
+                        if '(' not in line and '^' not in line and '?' not in line and '"' not in line:  # espeak sometimes put (en) tags in and tries to be smart
+                                output_file.write(f"{line.strip()}\n")
                 output_file.write('\n')  # Add a newline between files
             except FileNotFoundError:
                 print(f"File not found: {ipa_filename}")
