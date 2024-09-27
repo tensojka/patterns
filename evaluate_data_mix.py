@@ -224,6 +224,14 @@ if __name__ == "__main__":
         } for w, (g, b, m) in results.items()
     }
 
+    if os.path.exists("work/hyph-uk.tex"):
+        (g, b, m) = validate("groundtruth/uk-wiktionary.wlh", "work/hyph-uk.tex")
+        json_results["orig"] = {
+            "good": g,
+            "bad": b,
+            "missed": m
+        }
+
     # Save results to a JSON file
     output_filename = f"work/gridsearch-{timestamp}-results.json"
     with open(output_filename, 'w') as f:
