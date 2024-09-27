@@ -57,7 +57,7 @@ work/%.wlh: work/%.wls
 	mv pattmp.1 $@
 	sed -i -e 's/\./-/g' $@
 
-groundtruth/uk-full-wiktionary.wlh: work/ukwiktionary-20240920-pages-meta-current.xml parse_ground_truth.py
+groundtruth/uk-full-wiktionary.wlh: work/ukwiktionary-20240920-pages-articles.xml parse_ground_truth.py
 	python parse_ground_truth.py $< > $@
 
 work/ukwiktionary-20240920-pages-articles.xml:
