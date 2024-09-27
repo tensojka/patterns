@@ -170,10 +170,10 @@ def run_if_needed(cmd, source_file, target_file, description):
 def generate_weights_to_evaluate():
     # Define the range of values for each weight
     weight_ranges = [
-        (1, 5), # pl
-        (1, 5), # sk
-        (1, 5), # uk
-        (1, 5) # ru
+        (0, 1, 5, 9), # pl
+        (0, 1, 5, 9), # sk
+        (0, 1, 5, 9), # uk
+        (0, 1, 5, 9) # ru
     ]
     
     # Generate all combinations of weights
@@ -206,7 +206,7 @@ if __name__ == "__main__":
         decode_pattern_file(encoded_output_file, output_file, {v: k for k, v in translation_dict.items()})
         print(f"Joint IPA patterns saved to: {output_file}")
 
-        results[weights] = evaluate_patterns(output_file, "groundtruth/uk-wiktionary.wlh", "work/uk.ipa.wls", "uk")
+        results[weights] = evaluate_patterns(output_file, "groundtruth/uk-full-wiktionary.wlh", "work/uk.ipa.wls", "uk")
 
     import json
     import time
@@ -225,11 +225,12 @@ if __name__ == "__main__":
     }
 
     if os.path.exists("work/hyph-uk.tex"):
-        (g, b, m) = validate("groundtruth/uk-wiktionary.wlh", "work/hyph-uk.tex")
+        (g, b, m) = validate("groundtruth/uk-full-wiktionary.wlh", "work/hyph-uk.tex")
         json_results["orig"] = {
             "good": g,
             "bad": b,
-            "missed": m
+            "missed": m,
+            "params": PARAMS
         }
 
     # Save results to a JSON file

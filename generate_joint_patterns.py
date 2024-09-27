@@ -108,6 +108,8 @@ def train_joint_patterns(joint_ipa_file, translate_file, params_file, output_fil
 def merge_ipa_files(ipa_filenames, weights: List[int], output_filename: str):
     with open(output_filename, 'w', encoding='utf-8') as output_file:
         for ipa_filename, weight in zip(ipa_filenames, weights):
+            if weight == 0:
+                continue
             try:
                 with open(ipa_filename, 'r', encoding='utf-8') as input_file:
                     output_file.write(f"{weight}\n")
