@@ -5,9 +5,8 @@ from itertools import product
 from typing import Tuple
 
 TEMP_WORKDIR = '/var/tmp/ipa-patterns/' 
-PARAMS = 'ipa-sojka-correctoptimized.par'
 
-def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_training_wordlist: str, language: str) -> Tuple[float, float, float]:
+def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_training_wordlist: str, language: str, params_single_lang: str) -> Tuple[int, int, int]:
     os.makedirs(TEMP_WORKDIR, exist_ok=True)
 
     # Use these IPA patterns to hyphenate a specific-language wordlist
@@ -25,20 +24,20 @@ def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_t
 
     # Generate single-language non-IPA patterns
     non_ipa_patterns_file = os.path.join(TEMP_WORKDIR, f"{language}.new.pat")
-    generate_non_ipa_patterns(hyphenated_file, non_ipa_patterns_file, language)
+    generate_non_ipa_patterns(hyphenated_file, non_ipa_patterns_file, language, params_single_lang)
 
     # Evaluation will be done later
     print(f"Patterns generated for {language}. Evaluation:")
     return validate(groundtruth_filename, non_ipa_patterns_file)
 
 
-def generate_non_ipa_patterns(input_file: str, output_file: str, language: str):
+def generate_non_ipa_patterns(input_file: str, output_file: str, language: str, params_single_lang: str):
     # Create a custom translate file
     translate_file = os.path.join(TEMP_WORKDIR, f"{language}.tra")
     encoding_dict = create_translate_file(input_file, translate_file)
 
     # Generate patterns using patgen
-    params_file = os.path.abspath(os.path.join(os.path.dirname(__file__), 'parameters', PARAMS))
+    params_file = os.path.abspath(os.path.join(os.path.dirname(__file__), 'parameters', params_single_lang))
     encoded_input_file = os.path.join(TEMP_WORKDIR, f"{language}.encoded.wlh")
     encode_file(input_file, encoded_input_file, encoding_dict)
 
@@ -170,12 +169,12 @@ def run_if_needed(cmd, source_file, target_file, description):
 def generate_weights_to_evaluate():
     # Define the range of values for each weight
     weight_ranges = [
-        (0, 1, 5, 9), # pl
-        (0, 1, 5, 9), # sk
-        (0, 1, 5, 9), # uk
-        (0, 1, 5, 9) # ru
+        (0, 1), # pl
+        (0, 1), # sk
+        (0, 1), # uk
+        (0, 1) # ru
     ]
-    
+
     # Generate all combinations of weights
     weights_to_evaluate = list(product(*weight_ranges))
     
@@ -192,21 +191,33 @@ def generate_weights_to_evaluate():
 
 from typing import Dict, List, Tuple
 from generate_joint_patterns import generate_joint_patterns
+
+def evaluate_data_mix(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: str, params_single: str) -> Tuple[int, int, int]:
+    output_file = "work/all.pat"
+    encoded_output_file = "work/all.pat.enc"
+
+    print(f"Evaluating weights: {weights}")
+    translation_dict = generate_joint_patterns(ipa_files, list(weights), encoded_output_file, params_ipa)
+    print(translation_dict)
+    
+    # Decode the pattern file
+    decode_pattern_file(encoded_output_file, output_file, {v: k for k, v in translation_dict.items()})
+    print(f"Joint IPA patterns saved to: {output_file}")
+
+    return evaluate_patterns(output_file, "groundtruth/uk-full-wiktionary.wlh", "work/uk.ipa.wls", "uk", params_single)
+
+
 if __name__ == "__main__":
     ipa_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
-    results: Dict[List[int], Tuple[int, int, int]] = {}
+    results: List[Tuple[Tuple[int, ...], Tuple[int, ...]]] = []
     weights_to_evaluate = generate_weights_to_evaluate()
     output_file = "work/all.pat"
     encoded_output_file = "work/all.pat.enc"
+    params_ipa = "ipa-sojka-correctoptimized.par"
+    params_single = "csskhyphen.par"
     for weights in weights_to_evaluate:
-        print(f"Evaluating weights: {weights}")
-        translation_dict = generate_joint_patterns(ipa_files, list(weights), encoded_output_file, PARAMS)
-        print(translation_dict)
-        # Decode the pattern file
-        decode_pattern_file(encoded_output_file, output_file, {v: k for k, v in translation_dict.items()})
-        print(f"Joint IPA patterns saved to: {output_file}")
+        results.append((weights, evaluate_data_mix(ipa_files, weights, params_ipa, params_single)))
 
-        results[weights] = evaluate_patterns(output_file, "groundtruth/uk-full-wiktionary.wlh", "work/uk.ipa.wls", "uk")
 
     import json
     import time
@@ -214,28 +225,23 @@ if __name__ == "__main__":
     # Generate a unique timestamp
     timestamp = int(time.time())
 
-    # Prepare the results for JSON serialization
-    json_results = {
-        str(tuple(w)): {
-            "good": g,
-            "bad": b,
-            "missed": m,
-            "params": PARAMS
-        } for w, (g, b, m) in results.items()
+    json_report = {
+        "run_params": {
+            "ipa_files": ipa_files,
+            "params_ipa" : params_ipa,
+            "params_single": params_single,
+            "pipeline_version": 1
+        },
+        "results": results
     }
 
     if os.path.exists("work/hyph-uk.tex"):
         (g, b, m) = validate("groundtruth/uk-full-wiktionary.wlh", "work/hyph-uk.tex")
-        json_results["orig"] = {
-            "good": g,
-            "bad": b,
-            "missed": m,
-            "params": PARAMS
-        }
+        json_report["validation_results"] = [ (g, b, m)]
 
     # Save results to a JSON file
     output_filename = f"work/gridsearch-{timestamp}-results.json"
     with open(output_filename, 'w') as f:
-        json.dump(json_results, f, indent=2)
+        json.dump(json_report, f, indent=2)
 
     print(f"Results saved to: {output_filename}")
