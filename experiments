@@ -1,0 +1,24 @@
+## 27.9.2024
+
+Attempting to evaluate whether we're able to generate correct/good hyphenation patterns for ukrainian.
+
+ipa_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
+
+weight_ranges = [
+    (0, 1, 5, 9), # pl
+    (0, 1, 5, 9), # sk
+    (0, 1, 5, 9), # uk
+    (0, 1, 5, 9) # ru
+]
+
+"groundtruth/uk-full-wiktionary.wlh"
+
+PARAMS = 'ipa-sojka-correctoptimized.par'
+
+Finally, we're evaluating on the complete ukrainian wiktionary.
+
+Results: https://www.fi.muni.cz/~xsojka/gridsearch-1727452124-results.json
+
+Quite terrible.
+
+Turns out, I AM NOT EVEN FUCKING RUNNING THE LAST STEP! ALL EXPERIMENTS BEFORE THIS ARE INVALIDATED.
