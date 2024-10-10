@@ -19,6 +19,9 @@ fn process_word_batch(words: &[String], ipa_map: &HashMap<String, String>) -> Ve
             .unwrap_or_else(|| panic!("IPA not found for word: {}", stripped_word))
             .clone();
         
+        if !word.contains('-') {
+            return ipa;
+        }
         let result = transform(word, &ipa);
         WORD_COUNT.fetch_add(1, Ordering::Relaxed);
         result
