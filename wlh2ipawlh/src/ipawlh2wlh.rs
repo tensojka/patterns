@@ -8,6 +8,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use transform_hyphens::transform::transform;
 use rayon::prelude::*;
+use transform_hyphens::utils::get_language;
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 const BATCH_SIZE: usize = 500;
@@ -28,21 +29,21 @@ fn process_word_batch(words: &[String], ipa_map: &HashMap<String, String>) -> Ve
     }).collect()
 }
 
-pub fn load_ipa_maps() -> HashMap<String, String> {
+pub fn load_ipa_maps(input_file: String) -> HashMap<String, String> {
     let mut ipa_map = HashMap::new();
-    let ipa_cache_dir = Path::new("work").join("ipacache");
-
-    if let Ok(entries) = fs::read_dir(ipa_cache_dir) {
-        for entry in entries.filter_map(Result::ok) {
-            if let Some(file_name) = entry.file_name().to_str() {
-                if file_name.ends_with(".json") {
-                    let json = fs::read_to_string(entry.path()).expect("Failed to read IPA cache file");
-                    let loaded_map: HashMap<String, String> = serde_json::from_str(&json).unwrap_or_else(|_| HashMap::new());
-                    ipa_map.extend(loaded_map.into_iter().map(|(k, v)| (v, k)));
-                }
-            }
-        }
+    // Formerly, we have read all the ipamaps. But this sometimes causes issues in case of words where one ipa representation maps to multiple different original representations in different languages
+    // Therefore, we re-read the ipamap that corresponds to the input file.
+    let lang = get_language(input_file.as_str());
+    let lang_file = format!("{}.json", lang.replace('/', "-"));
+    let lang_ipa_file = Path::new("work").join("ipacache").join(lang_file);
+    
+    if !lang_ipa_file.exists() {
+        panic!("IPA cache file for language {} does not exist", lang);
     }
+
+    let json = fs::read_to_string(lang_ipa_file).expect("Failed to read language-specific IPA cache file");
+    let loaded_map: HashMap<String, String> = serde_json::from_str(&json).unwrap_or_else(|_| HashMap::new());
+    ipa_map.extend(loaded_map.into_iter().map(|(k, v)| (v, k)));
 
     ipa_map
 }
@@ -78,7 +79,7 @@ fn main() -> std::io::Result<()> {
 
     println!("Processing words:");
     let out_file = Arc::new(Mutex::new(File::create(output_file)?));
-    let ipa_map = load_ipa_maps();
+    let ipa_map = load_ipa_maps(input_file.clone());
 
     words.par_chunks(BATCH_SIZE).for_each(|chunk| {
         let batch_results = process_word_batch(chunk, &ipa_map);
