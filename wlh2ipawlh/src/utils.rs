@@ -53,7 +53,7 @@ pub fn get_espeak_ipa_batch(words: &[String], language: &str) -> Vec<String> {
                 println!("Warning: Empty IPA generated for a word");
                 String::from("?") // Placeholder for empty IPA
             } else {
-                trimmed.to_string()
+                trimmed.replace("ˈ", "").to_string()
             }
         })
         .collect()
