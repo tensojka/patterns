@@ -11,6 +11,7 @@ fn ipa_to_ascii(c: char) -> char {
         'ʒ' => 'z',
         'ɛ' => 'e',
         'š' => 's',
+        'ɑ' => 'a',  // Map 'ɑ' to 'a'
         _ => c,
     }
 }
@@ -31,23 +32,34 @@ fn align_sequences(seq1: &[char], seq2: &[char]) -> (Vec<Option<usize>>, Vec<Opt
     let mut score_matrix = vec![vec![0; n + 1]; m + 1];
     let mut traceback = vec![vec![(0, 0); n + 1]; m + 1];
 
-    // Fill in the first row and column
-    for i in 0..=m {
+    // Initialize first column of traceback
+    for i in 1..=m {
         score_matrix[i][0] = gap_penalty * i as i32;
+        traceback[i][0] = (i - 1, 0);
     }
-    for j in 0..=n {
+
+    // Initialize first row of traceback
+    for j in 1..=n {
         score_matrix[0][j] = gap_penalty * j as i32;
+        traceback[0][j] = (0, j - 1);
     }
 
     // Fill in the rest of the matrix
     for i in 1..=m {
         for j in 1..=n {
-            let match_mismatch = if seq1[i - 1] == seq2[j - 1] {
+            let is_hyphen = seq1[i - 1] == '-';
+
+            let match_mismatch = if is_hyphen {
+                std::i32::MIN / 2 // Large negative number to prevent matching hyphen with any character
+            } else if seq1[i - 1] == seq2[j - 1] {
                 score_matrix[i - 1][j - 1] + match_score
             } else {
                 score_matrix[i - 1][j - 1] + mismatch_penalty
             };
-            let delete = score_matrix[i - 1][j] + gap_penalty;
+
+            let delete_penalty = if is_hyphen { 0 } else { gap_penalty };
+            let delete = score_matrix[i - 1][j] + delete_penalty;
+
             let insert = score_matrix[i][j - 1] + gap_penalty;
 
             let max_score = match_mismatch.max(delete).max(insert);
@@ -71,17 +83,29 @@ fn align_sequences(seq1: &[char], seq2: &[char]) -> (Vec<Option<usize>>, Vec<Opt
     let mut j = n;
 
     while i > 0 || j > 0 {
+        if i == 0 && j == 0 {
+            break;
+        }
+
         let (prev_i, prev_j) = traceback[i][j];
-        if i > 0 && j > 0 && traceback[i][j] == (i - 1, j - 1) {
+
+        if i > prev_i && j > prev_j {
+            // Diagonal move
             align1.push(Some(i - 1));
             align2.push(Some(j - 1));
-        } else if i > 0 && traceback[i][j] == (i - 1, j) {
+        } else if i > prev_i {
+            // Up move (gap in seq2)
             align1.push(Some(i - 1));
             align2.push(None);
-        } else {
+        } else if j > prev_j {
+            // Left move (gap in seq1)
             align1.push(None);
             align2.push(Some(j - 1));
+        } else {
+            // Should not happen
+            break;
         }
+
         i = prev_i;
         j = prev_j;
     }
@@ -92,50 +116,37 @@ fn align_sequences(seq1: &[char], seq2: &[char]) -> (Vec<Option<usize>>, Vec<Opt
     (align1, align2)
 }
 
+
 // Function to transfer hyphens between two strings
 fn transfer_hyphens(hyphenated: &str, non_hyphenated: &str) -> String {
-    let hyphenated_no_hyphens = hyphenated.replace('-', "");
-    let simplified_hyphenated: Vec<char> = simplify(&hyphenated_no_hyphens);
+    let simplified_hyphenated: Vec<char> = simplify(hyphenated);
     let simplified_non_hyphenated: Vec<char> = simplify(non_hyphenated);
 
     let (align_hyph_indices, align_non_hyph_indices) =
         align_sequences(&simplified_hyphenated, &simplified_non_hyphenated);
 
-    let mut hyphen_positions = Vec::new();
-    let mut hyph_index = -1_isize; // Start from -1
-    for c in hyphenated.chars() {
-        if c != '-' {
-            hyph_index += 1;
-        } else {
-            hyphen_positions.push(hyph_index as usize);
-        }
-    }
+    let seq1 = hyphenated.chars().collect::<Vec<char>>();
+    let seq2 = non_hyphenated.chars().collect::<Vec<char>>();
 
-    let mut result_chars: Vec<char> = non_hyphenated.chars().collect();
-    let mut insert_positions = Vec::new();
-
-    for hyphen_pos in hyphen_positions {
-        for (hyph_opt, non_hyph_opt) in align_hyph_indices.iter().zip(align_non_hyph_indices.iter()) {
-            if let Some(hyph_i) = hyph_opt {
-                if *hyph_i == hyphen_pos {
-                    if let Some(non_hyph_i) = non_hyph_opt {
-                        insert_positions.push(non_hyph_i + 1);
-                        break;
-                    }
-                }
+    let mut result_chars = Vec::new();
+    for k in 0..align_hyph_indices.len() {
+        if let Some(i) = align_hyph_indices[k] {
+            if seq1[i] == '-' {
+                // Hyphen in seq1, insert hyphen into result
+                result_chars.push('-');
+            } else if let Some(j) = align_non_hyph_indices[k] {
+                // Both seq1 and seq2 have characters, append seq2[j]
+                result_chars.push(seq2[j]);
+            } else {
+                // seq1 has character, seq2 has gap
+                // Should not happen with adjusted scoring
             }
-        }
-    }
-
-    // Insert hyphens into the result
-    insert_positions.sort_unstable();
-    let mut offset = 0;
-    for pos in insert_positions {
-        if pos + offset < result_chars.len() {
-            result_chars.insert(pos + offset, '-');
-            offset += 1;
+        } else if let Some(j) = align_non_hyph_indices[k] {
+            // Gap in seq1, character in seq2
+            result_chars.push(seq2[j]);
         } else {
-            result_chars.push('-');
+            // Both seq1 and seq2 have gaps
+            // Should not happen
         }
     }
 
@@ -147,5 +158,19 @@ pub fn transform(original: &str, ipa: &str) -> String {
         transfer_hyphens(original, ipa)
     } else {
         transfer_hyphens(ipa, original)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transfer_hyphens() {
+        assert_eq!(transfer_hyphens("укра-ї-на", "ukrɑina"), "ukrɑ-i-na");
+        assert_eq!(transfer_hyphens("укра-ї-ни", "ukrɑini"), "ukrɑ-i-ni");
+        assert_eq!(transfer_hyphens("ukra-yin-s`ke", "ukrɑinski"), "ukrɑ-in-ski");
+        assert_eq!(transfer_hyphens("ukra-yi-ni", "ukrɑini"), "ukrɑ-i-ni");
+        assert_eq!(transfer_hyphens("ukra-yi-nu", "ukrɑinu"), "ukrɑ-i-nu");
     }
 }
