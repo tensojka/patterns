@@ -1,6 +1,5 @@
 use std::process::{Command, Stdio};
 use std::io::{Read, Write};
-use triple_accel::levenshtein::levenshtein_simd_k_str;
 
 pub fn get_language(filename: &str) -> &'static str {
     let lowercase_filename = filename.to_lowercase();
@@ -57,23 +56,4 @@ pub fn get_espeak_ipa_batch(words: &[String], language: &str) -> Vec<String> {
             }
         })
         .collect()
-}
-
-
-pub fn get_best_levenshtein(candidates: &[String], target: &str) -> Vec<String> {
-    let mut best_levenshtein_distance = usize::MAX;
-    let mut best_levenshtein_candidates: Vec<String> = Vec::new();
-
-    for candidate in candidates {
-        if let Some(distance) = levenshtein_simd_k_str(target, candidate, best_levenshtein_distance as u32) {
-            if distance < best_levenshtein_distance as u32 {
-                best_levenshtein_distance = distance as usize;
-                best_levenshtein_candidates = vec![candidate.clone()];
-            } else if distance == best_levenshtein_distance as u32 {
-                best_levenshtein_candidates.push(candidate.clone());
-            }
-        }
-    }
-
-    best_levenshtein_candidates
 }
