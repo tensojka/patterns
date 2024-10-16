@@ -36,4 +36,19 @@ def validate(wlh, pat, lang):
 
 
 #validate('groundtruth/uk-full-wiktionary.wlh', '/var/tmp/ipa-patterns/uk.new.pat', 'uk')
-validate('groundtruth/uk-full-wiktionary.wlh', 'work/uk-orig.pat', 'uk')
+#validate('groundtruth/uk-full-wiktionary.wlh', 'work/uk-orig.pat', 'uk')
+
+
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) != 4:
+        print("Usage: python validate.py <wlh_file> <pat_file> <lang>")
+        sys.exit(1)
+    
+    wlh_file = sys.argv[1]
+    pat_file = sys.argv[2]
+    lang = sys.argv[3]
+    
+    validate(wlh_file, pat_file, lang)
+
