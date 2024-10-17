@@ -32,30 +32,22 @@ work/sh.wlh: work/sh.wls
 	fi
 	python hyph.py work/hyph-sh-latn.tex $< > $@
 
-work/cs.wlh: work/cs.wls
-	echo "beware, expects Czech/Slovak by default"
-	recode UTF8..ISO-8859-2 $<
-	printf "%s\n%s\n%s\n%s" "1 1" \
-	"1 1" \
-	"1 1 1" \
-	"y" \
-	| patgen $< ~/cshyphen/csskhyphen.pat /dev/null ~/cshyphen/czech.tra
-	mv pattmp.1 $@
-	recode ISO-8859-2..UTF8 $<
-	recode ISO-8859-2..UTF8 $@
-	sed -i -e 's/\./-/g' $@
+work/csskhyphen.pat:
+	@if [ ! -f work/csskhyphen.pat ]; then \
+		wget https://raw.githubusercontent.com/tensojka/cshyphen/master/csskhyphen.pat -O work/csskhyphen.pat; \
+	fi
+
+work/sk.wlh: work/sk.wls work/csskhyphen.pat
+	python hyph.py work/csskhyphen.pat $< > $@
+
+work/cs.wlh: work/cs.wls work/csskhyphen.pat
+	python hyph.py work/csskhyphen.pat $< > $@
 
 work/%.wlh: work/%.wls
 	@if [ ! -f work/hyph-$*.tex ]; then \
 		wget https://raw.githubusercontent.com/hyphenation/tex-hyphen/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-$*.tex -O work/hyph-$*.tex; \
 	fi
-	printf "%s\n%s\n%s\n%s" "1 1" \
-	"1 1" \
-	"1 1 1" \
-	"y" \
-	| patgen $< work/hyph-$*.tex /dev/null work/hyph-$*.tra
-	mv pattmp.1 $@
-	sed -i -e 's/\./-/g' $@
+	python hyph.py work/hyph-$*.tex $< > $@
 
 groundtruth/uk-full-wiktionary.wlh: work/ukwiktionary-20240920-pages-articles.xml parse_ground_truth.py
 	python parse_ground_truth.py $< > $@
