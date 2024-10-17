@@ -2,13 +2,6 @@
 
 import argparse
 
-def has_forbidden_character(string):
-    try:
-        string.encode('iso-8859-2')
-    except UnicodeEncodeError:
-        return True
-    return False
-
 def parse_frqwl(filename, minfreq=50):
     wl = set()
     if minfreq is None:
@@ -17,16 +10,12 @@ def parse_frqwl(filename, minfreq=50):
         ln = 0
 
         for line in inpf:
-            # if has_forbidden_character(line):
-            #     continue
             split = line.split("\t")
             try:
                 if int(split[1]) > minfreq:
                     wl.add(split[0])
             except IndexError:
                 raise ValueError("Invalid format of "+filename+" on line "+str(ln))
-#            except TypeError:
-#                print(int(split[1]))
             ln += 1
     return wl
 
