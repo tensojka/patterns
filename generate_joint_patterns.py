@@ -46,19 +46,17 @@ def encode_ipa_file(input_file, output_file):
 
     return ipa_chars
 
-def generate_translate_file(translation_dict, output_file):
-    with open(output_file, 'wb') as f:
-        f.write(b" 2 2\n")
-        # Write ASCII lowercase letters (a-z)
-        for ascii_char in range(ord('a'), ord('z') + 1):
-            f.write(b" %c\n" % ascii_char)
-        f.write(b" ^\n")
-        f.write(b" \"\n")
-        # Write the custom IPA characters
-        for eight_bit in translation_dict.values():
-            f.write(b" %c\n" % eight_bit)
+def generate_translate_file(translate_filename, inp_filename):
+    with open(inp_filename, 'r', encoding='utf-8') as file:
+        text = file.read()
+    unique_chars = set(text)
+    chars_for_translatefile = unique_chars - set(['\n', '-', '<', '/', '.'])
 
-    print(f"Translate file generated: {output_file}")
+    with open(translate_filename, 'wb') as f:
+        f.write(b" 1 1\n")
+        for char in chars_for_translatefile:
+            if not char.isnumeric():
+                f.write(f" {char} \n".encode('utf-8'))
 
 def train_joint_patterns(joint_ipa_file, translate_file, params_file, output_file):
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -125,39 +123,27 @@ def merge_ipa_files(ipa_filenames, weights: List[int], output_filename: str):
 def generate_joint_patterns(ipa_filenames, weights, output_filename, params_filename):
     # Merge the .ipa.wlh files into a single .ipa.wlh file
     joint_ipa_file = TEMP_WORKDIR_PREFIX + 'joint.ipa.wlh'
-    encoded_ipa_file = TEMP_WORKDIR_PREFIX + 'joint.ipa.patenc.wlh'
     translate_filename = TEMP_WORKDIR_PREFIX + 'joint.tra'
     assert(len(ipa_filenames) == len(weights))
     merge_ipa_files(ipa_filenames, weights, joint_ipa_file)
     
-    # Encode the merged file and generate the translate file
-    translation_dict = encode_ipa_file(joint_ipa_file, encoded_ipa_file)
-    generate_translate_file(translation_dict, translate_filename)
+    generate_translate_file(translate_filename, joint_ipa_file)
 
-    # Train joint patterns on the encoded .ipa.wlh file
     params_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parameters', params_filename)
-    train_joint_patterns(encoded_ipa_file, translate_filename, params_file, output_filename)
-
-    return translation_dict
+    train_joint_patterns(joint_ipa_file, translate_filename, params_file, output_filename)
 
 if __name__ == "__main__":
     ipa_files = ["work/cs.ipa.wlh"]#, "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/sh.ipa.wlh"]
     weights = [2]#[9, 1, 1, 1, 1]
     output_file = "work/all.pat"
-    encoded_output_file = "work/all.pat.enc"
     
-    translation_dict = generate_joint_patterns(ipa_files, weights, encoded_output_file, 'ipa-sojka-correctoptimized.par')
-    print(translation_dict)
-    # Decode the pattern file
-    decode_pattern_file(encoded_output_file, output_file, {v: k for k, v in translation_dict.items()})
+    generate_joint_patterns(ipa_files, weights, output_file, 'ipa-sojka-correctoptimized.par')
+
     # Check if pattmp.4 exists in patgen working directory
     patgen_pattmp4 = os.path.join(TEMP_WORKDIR_PREFIX, 'out/pattmp.4')
     if os.path.exists(patgen_pattmp4):
         # Define the target file in the main working directory
         main_pattmp4 = os.path.join('work', 'pattmp.4')
-        
-        # Use decode_pattern_file to convert and save the file
-        decode_pattern_file(patgen_pattmp4, main_pattmp4, {v: k for k, v in translation_dict.items()})
-        
-        print(f"Converted pattmp.4 saved to: {main_pattmp4}")
+        shutil.copy(patgen_pattmp4, main_pattmp4)
+        print(f"pattmp.4 saved to: {main_pattmp4}")
     print(f"Joint IPA patterns saved to: {output_file}")

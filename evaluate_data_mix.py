@@ -11,7 +11,7 @@ def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_t
 
     # Use these IPA patterns to hyphenate a specific-language wordlist
     hyphenated_ipa_file = os.path.join(TEMP_WORKDIR, f"{language}.ipa.new.wlh")
-    subprocess.run(["python", "hyph.py", patterns_filename, final_training_wordlist], stdout=open(hyphenated_ipa_file, "w"))
+    subprocess.run(["python3", "hyph.py", patterns_filename, final_training_wordlist], stdout=open(hyphenated_ipa_file, "w"))
 
     # Convert the hyphenated wordlist from IPA
     hyphenated_file = os.path.join(TEMP_WORKDIR, f"{language}.new.wlh")
@@ -27,9 +27,17 @@ def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_t
     generate_non_ipa_patterns(hyphenated_file, non_ipa_patterns_file, language, params_single_lang)
 
     # Evaluation will be done later
-    print(f"Patterns generated for {language}. Evaluation:")
+    print(f"Patterns generated for {language} in {non_ipa_patterns_file}. Evaluation:")
     return validate(groundtruth_filename, non_ipa_patterns_file)
 
+
+def get_groundtruth_for(language: str):
+    if language == "uk":
+        return "groundtruth/uk-full-wiktionary.wlh"
+    elif language == "cs":
+        return "groundtruth/cs-ujc.wlh"
+    else:
+        return f'groundtruth/{language}-wiktionary.wlh'
 
 def generate_non_ipa_patterns(input_file: str, output_file: str, language: str, params_single_lang: str):
     # Create a custom translate file
@@ -69,7 +77,7 @@ def create_translate_file(input_file: str, translate_file: str) -> OrderedDict:
                     chars[char] = len(chars) + 162
 
     with open(translate_file, 'wb') as f:
-        f.write(b" 2 2\n")
+        f.write(b" 1 1\n")
         # Write ASCII lowercase letters (a-z)
         for ascii_char in range(ord('a'), ord('z') + 1):
             f.write(b" %c\n" % ascii_char)
