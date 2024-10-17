@@ -1,3 +1,5 @@
+use crate::utils::count_hyphens;
+
 // Mapping from IPA characters to ASCII characters to simplify similarity computations
 fn ipa_to_ascii(c: char) -> char {
     match c {
@@ -155,7 +157,9 @@ fn transfer_hyphens(hyphenated: &str, non_hyphenated: &str) -> String {
 
 pub fn transform(original: &str, ipa: &str) -> String {
     if original.contains('-') {
-        transfer_hyphens(original, ipa)
+        let res = transfer_hyphens(original, ipa);
+        assert_eq!(count_hyphens(original), count_hyphens(res.as_str()));
+        res
     } else {
         transfer_hyphens(ipa, original)
     }

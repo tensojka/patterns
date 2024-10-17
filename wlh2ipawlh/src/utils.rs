@@ -57,3 +57,7 @@ pub fn get_espeak_ipa_batch(words: &[String], language: &str) -> Vec<String> {
         })
         .collect()
 }
+
+pub(crate) fn count_hyphens(word: &str) -> usize {
+    word.chars().filter(|&c| c == '-').count()
+}
