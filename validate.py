@@ -16,12 +16,13 @@ def validate_using_patgen(wlh, pat, lang):
     current_dir = os.getcwd()
     wlh = os.path.abspath(os.path.join(current_dir, wlh))
     pat = os.path.abspath(os.path.join(current_dir, pat))
+    translatefile = os.path.abspath(os.path.join(current_dir, lang))
     # Prepare the input for patgen
     patgen_input = "1 1\n1 9\n1 1 10000\ny\n"
 
     # Run patgen command
     process = subprocess.Popen(
-        ['patgen', wlh, pat, '/dev/null', '/Users/onda/patterns/patterns/translatefiles/uk'],
+        ['patgen', wlh, pat, '/dev/null', translatefile],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
