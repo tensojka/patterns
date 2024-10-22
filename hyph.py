@@ -1,4 +1,5 @@
 # Adapted from https://nedbatchelder.com/code/modules/hyphenate.py
+# Adjusted minimum length to 4
 
 import re
 import regex
@@ -41,7 +42,7 @@ class Hyphenator:
         t[None] = points
 
     def hyphenate_word(self, word):
-        if len(word) <= 4:
+        if len(word) <= 2:
             return [word]
         if word.lower() in self.exceptions:
             points = self.exceptions[word.lower()]
