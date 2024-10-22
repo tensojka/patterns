@@ -16,7 +16,7 @@ def validate_using_patgen(wlh, pat, lang):
     current_dir = os.getcwd()
     wlh = os.path.abspath(os.path.join(current_dir, wlh))
     pat = os.path.abspath(os.path.join(current_dir, pat))
-    translatefile = os.path.abspath(os.path.join(current_dir, lang))
+    translatefile = os.path.abspath(os.path.join(current_dir, "translatefiles/"+lang))
     # Prepare the input for patgen
     patgen_input = "1 1\n1 9\n1 1 10000\ny\n"
 
