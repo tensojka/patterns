@@ -29,7 +29,7 @@ def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_t
 
     # Evaluation will be done later
     print(f"Patterns generated for {language} in {non_ipa_patterns_file}. Evaluation:")
-    return validate_using_patgen(groundtruth_filename, non_ipa_patterns_file)
+    return validate_using_patgen(groundtruth_filename, non_ipa_patterns_file, language)
 
 
 def get_groundtruth_for(language: str):
