@@ -1,6 +1,7 @@
 import re
 import subprocess
 import os
+import sys
 # Directly uses patgen to get data on the validation perf of a given validation wl and a given pattern set.
 
 WORKDIR = '/var/tmp/validate-patterns'
