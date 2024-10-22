@@ -247,7 +247,7 @@ def run_with_params(params_ipa, params_single):
     }
 
     if os.path.exists("work/hyph-uk.tex"):
-        (g, b, m) = validate_using_patgen("groundtruth/uk-full-wiktionary.wlh", "work/hyph-uk.tex")
+        (g, b, m) = validate_using_patgen("groundtruth/uk-full-wiktionary.wlh", "work/hyph-uk.tex", "uk")
         json_report["validation_results"] = [ (g, b, m)]
 
     # Save results to a JSON file
