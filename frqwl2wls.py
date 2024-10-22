@@ -1,56 +1,34 @@
 # Generate a .wls (wordlist separated by newlines) from one or more frqwl
 
 import argparse
+from typing import List, Tuple
 
-def parse_frqwl(filename, minfreq=50):
-    wl = set()
-    if minfreq is None:
-        minfreq = 50
+def parse_frqwl(filename: str) -> List[Tuple[str, int]]:
     with open(filename) as inpf:
-        ln = 0
+        return [
+            (split[0], int(split[1]))
+            for line in inpf
+            for split in [line.strip().split("\t")]
+            if len(split) == 2 and split[1].isdigit()
+        ]
 
-        for line in inpf:
-            split = line.split("\t")
-            try:
-                if int(split[1]) > minfreq:
-                    wl.add(split[0])
-            except IndexError:
-                raise ValueError("Invalid format of "+filename+" on line "+str(ln))
-            ln += 1
-    return wl
+def get_top_n_words(word_freq_list: List[Tuple[str, int]], n: int) -> List[str]:
+    return [word for word, _ in sorted(word_freq_list, key=lambda x: x[1], reverse=True)[:n]]
 
 parser = argparse.ArgumentParser()
-parser.add_argument('outf', type=str,
-                    help='wls output file')
-
-parser.add_argument('inpf', type=str,
-                    help='frqwl input file')
-
-parser.add_argument('inpf2', type=str, nargs='?',
-                    help='frqwl input file to intersect with the first')
-
-parser.add_argument("--minfreq", type=int, nargs='?',
-                    help='throw away words with frequency lower than')
-
-parser.add_argument("-v", action='store_true',
-                    help='verbose')
+parser.add_argument('outf', type=str, help='wls output file')
+parser.add_argument('inpf', type=str, help='frqwl input file')
+parser.add_argument("--len", type=int, default=200000, help='number of top words to include')
+parser.add_argument("-v", action='store_true', help='verbose')
 
 args = parser.parse_args()
 
-inp1 = parse_frqwl(args.inpf, args.minfreq)
-if args.inpf2 != None:
-    inp2 = parse_frqwl(args.inpf2, args.minfreq)
-    out = inp1.intersection(inp2)
-else:
-    out = inp1
+word_freq_list = parse_frqwl(args.inpf)
+top_words = get_top_n_words(word_freq_list, args.len)
 
 if args.v:
-    print("Words in input file 1: "+str(len(inp1)))
-    print("Words in input file 2: "+str(len(inp2)))
-    print("Words in output: "+str(len(out)))
+    print(f"Words in input file: {len(word_freq_list)}")
+    print(f"Words in output: {len(top_words)}")
 
 with open(args.outf, 'w') as of:
-    out = list(out)
-    out.sort()
-    for word in out:
-        of.write(word+"\n")
+    of.write('\n'.join(top_words))
