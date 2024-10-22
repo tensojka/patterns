@@ -114,55 +114,6 @@ def decode_pattern_file(input_file, output_file, inverted_encoding_dict):
                     decoded_line += chr(byte)
             f_out.write(decoded_line)
 
-from hyph import Hyphenator
-
-# Given a filename of a hyphenated .wlh wordlist and a filename of
-# patterns to use, report how many hyphenation points were correctly found.
-# Returns (good, bad, missed)
-def validate(wlh, pat):
-    #patfile = open(pat, "r")
-    #patterns = patfile.read().split('\n')
-    hyphenator = Hyphenator(pat)
-    wlhfile = open(wlh, "r")
-    good = 0  # present in validation wl and patterns
-    bad = 0  # not present in validation wl, but in patterns
-    missed = 0  # present in validation wl, but not in patterns
-    for line in wlhfile.readlines():
-        if line[0].isnumeric:
-            line = line[1:]
-        valid_hyph_word = line[:-1]
-        word = valid_hyph_word.replace("-", "")
-        pat_hyph_word = "-".join(hyphenator.hyphenate_word(word))
-        offset = 0
-        for pos, char in enumerate(valid_hyph_word):
-            try:
-                if char == "-" and pat_hyph_word[pos+offset] == "-":
-                    if pos > 1 and pos < (len(pat_hyph_word)+offset-2):
-                        good += 1
-                elif char == "-" and pat_hyph_word[pos+offset] != "-":
-                    if pos > 1 and pos < (len(pat_hyph_word)+offset-2):
-                        missed += 1
-                    offset -= 1
-                elif char != "-" and pat_hyph_word[pos+offset] == "-":
-                    if pos > 1 and pos < (len(pat_hyph_word)+offset-2):
-                        bad += 1
-                    offset += 1
-            except IndexError:
-                print("Val: "+valid_hyph_word)
-                print("Pat: "+pat_hyph_word)
-
-
-        #if valid_hyph_word != pat_hyph_word:
-        #    print(valid_hyph_points)
-        #    print(pat_hyph_points)
-        #    print("Val: "+valid_hyph_word)
-        #    print("Pat: "+pat_hyph_word)
-    total = good + missed + bad
-    print("good: " + str(good) + ", good %: " + str(round(100*(good/total),2)))
-    print("missed: " + str(missed) + ", missed %: " + str(round(100*(missed/total),2)))
-    print("bad: " + str(bad) + ", bad %: " + str(round(100*(bad/total),2)))
-    return (good, bad, missed)
-
 def run_if_needed(cmd, source_file, target_file, description):
     if not os.path.exists(target_file) or not os.path.exists(source_file):
         should_run = True

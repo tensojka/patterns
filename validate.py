@@ -7,6 +7,26 @@ import sys
 WORKDIR = '/var/tmp/validate-patterns'
 os.makedirs(WORKDIR, exist_ok=True)
 
+# Cleans pattern.tex file to be edible by patgen. Sends result to WORKDIR/pat.pat
+def clean_pattern_dot_tex(tex_file: str) -> str:
+    result_filename = os.path.abspath(os.path.join(WORKDIR, 'pat.pat'))
+    with open(result_filename, 'w', encoding='utf-8') as outf:
+        with open(tex_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        patterns = []
+        for line in lines:
+            line = line.strip()
+            if line.startswith('%') or line.startswith('}'):
+                continue
+            if '-' in line:
+                continue
+            if line.startswith('\\patterns{'):
+                line = line[10:]
+            patterns.extend(line.split())
+        for pattern in patterns:
+            outf.write(pattern+'\n')
+    return result_filename
+
 # expects both wlh and pat to be in UTF-8
 def validate_using_patgen(wlh, pat, lang):
     if lang != 'uk':
@@ -16,6 +36,8 @@ def validate_using_patgen(wlh, pat, lang):
     current_dir = os.getcwd()
     wlh = os.path.abspath(os.path.join(current_dir, wlh))
     pat = os.path.abspath(os.path.join(current_dir, pat))
+    if pat.endswith('.tex'):
+        pat = clean_pattern_dot_tex(pat)
     translatefile = os.path.abspath(os.path.join(current_dir, "translatefiles/"+lang))
     # Prepare the input for patgen
     patgen_input = "1 1\n1 9\n1 1 10000\ny\n"
@@ -43,6 +65,7 @@ def validate_using_patgen(wlh, pat, lang):
         return tuple(map(int, match.groups()))
     else:
         print("Failed to extract counts from patgen output.", sys.stderr)
+        print(stdout)
         return None
 
 
@@ -61,5 +84,6 @@ if __name__ == "__main__":
     pat_file = sys.argv[2]
     lang = sys.argv[3]
     
-    validate_using_patgen(wlh_file, pat_file, lang)
+    good, bad, missed = validate_using_patgen(wlh_file, pat_file, lang)
+    print(f"{good} good, {bad} bad, {missed} missed")
 
