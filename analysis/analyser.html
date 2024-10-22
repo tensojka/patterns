@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON Analyzer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+    }
+    button {
+      margin-top: 10px;
+    }
+    table {
+      margin-top: 20px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    table, th, td {
+      border: 1px solid black;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+
+<h1>JSON Analyzer</h1>
+<p>Paste your JSON data below and click "Analyze".</p>
+
+<textarea id="jsonInput" placeholder="Paste JSON here..."></textarea>
+<button onclick="analyzeJson()">Analyze</button>
+
+<h2>Results</h2>
+<div id="resultSection"></div>
+
+<script>
+  function analyzeJson() {
+    // Clear previous results
+    document.getElementById('resultSection').innerHTML = '';
+
+    // Get the JSON input from the user
+    let jsonInput = document.getElementById('jsonInput').value;
+
+    try {
+      // Parse the JSON
+      let data = JSON.parse(jsonInput);
+
+      // Get IPA file names
+      let ipaFiles = data.run_params.ipa_files;
+
+      // Create a table to show statistics
+      let resultHtml = '<table>';
+      resultHtml += '<tr><th>Weight Combination</th>';
+
+      // Add IPA file columns
+      ipaFiles.forEach(file => {
+        resultHtml += `<th>${file}</th>`;
+      });
+
+      resultHtml += '<th>% Good</th><th>% Bad</th><th>% Missed</th></tr>';
+
+      // Iterate over the results and calculate statistics
+      for (let i = 0; i < data.results.length; i++) {
+        let weights = data.results[i][0];  // Weights for each IPA file
+        let stats = data.results[i][1];    // Good, Bad, Missed
+
+        let good = stats[0];
+        let bad = stats[1];
+        let missed = stats[2];
+        
+        // Avoid division by zero
+        if (good + bad === 0) {
+          continue;
+        }
+
+        let percentGood = (good / (good + bad)) * 100;
+        let percentBad = (bad / (good + bad)) * 100;
+        let percentMissed = (missed / (good + bad)) * 100;
+
+        resultHtml += '<tr>';
+
+        // Show the weight combination
+        resultHtml += '<td>Run ' + (i + 1) + '</td>';
+
+        // Add the weight for each IPA file
+        weights.forEach(weight => {
+          resultHtml += `<td>${weight}</td>`;
+        });
+
+        // Add % Good and % Missed
+        resultHtml += `<td>${percentGood.toFixed(2)}%</td>`;
+        resultHtml += `<td>${percentBad.toFixed(2)}%</td>`;
+        resultHtml += `<td>${percentMissed.toFixed(2)}%</td>`;
+
+        resultHtml += '</tr>';
+      }
+
+      resultHtml += '</table>';
+
+      // Add validation results (as percentages)
+      let validationResults = data.validation_results[0];
+      let validGood = validationResults[0];
+      let validBad = validationResults[1];
+      let validMissed = validationResults[2];
+      
+      if (validGood + validBad > 0) {
+        let percentValidGood = (validGood / (validGood + validBad)) * 100;
+        let percentValidBad = (validBad / (validGood + validBad)) * 100;
+        let percentValidMissed = (validMissed / (validGood + validBad)) * 100;
+      
+        resultHtml += '<h3>Validation Results</h3>';
+        resultHtml += '<table>';
+        resultHtml += '<tr><th>% Good</th><th>% Bad</th><th>% Missed</th></tr>';
+        resultHtml += `<tr><td>${percentValidGood.toFixed(2)}%</td><td>${percentValidBad.toFixed(2)}%</td><td>${percentValidMissed.toFixed(2)}%</td></tr>`;
+        resultHtml += '</table>';
+      }
+
+      // Display the table in the result section
+      document.getElementById('resultSection').innerHTML = resultHtml;
+
+    } catch (error) {
+      // Handle JSON parsing errors
+      document.getElementById('resultSection').innerHTML = '<p style="color: red;">Invalid JSON input. Please check the format.</p>';
+    }
+  }
+</script>
+
+</body>
+</html>

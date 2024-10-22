@@ -3,6 +3,7 @@ import os
 from collections import OrderedDict
 from itertools import product
 from typing import Tuple
+from validate import validate_using_patgen
 
 TEMP_WORKDIR = '/var/tmp/ipa-patterns/' 
 
@@ -28,7 +29,7 @@ def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_t
 
     # Evaluation will be done later
     print(f"Patterns generated for {language} in {non_ipa_patterns_file}. Evaluation:")
-    return validate(groundtruth_filename, non_ipa_patterns_file)
+    return validate_using_patgen(groundtruth_filename, non_ipa_patterns_file)
 
 
 def get_groundtruth_for(language: str):
@@ -65,6 +66,10 @@ def generate_non_ipa_patterns(input_file: str, output_file: str, language: str, 
         decode_pattern_file(pattern_final, output_file, {v: k for k, v in encoding_dict.items()})
     else:
         print(f"Error: pattern.final was not generated for {language}")
+    
+    pattmp_4 = os.path.join(TEMP_WORKDIR, "pattmp.4")
+    if os.path.exists(pattmp_4):
+        decode_pattern_file(pattmp_4, pattmp_4+'.nonipa.training.utf8', {v: k for k, v in encoding_dict.items()})
 
 def create_translate_file(input_file: str, translate_file: str) -> OrderedDict:
     chars = OrderedDict()
@@ -177,21 +182,26 @@ def run_if_needed(cmd, source_file, target_file, description):
 def generate_weights_to_evaluate():
     # Define the range of values for each weight
     weight_ranges = [
-        (0, 1), # pl
-        (0, 1), # sk
-        (0, 1), # uk
-        (0, 1) # ru
+        (0, 1, 3), # pl
+        (0, 1, 3), # sk
+        (0, 1, 3), # uk
+        (0, 1, 3) # ru
     ]
 
     # Generate all combinations of weights
     weights_to_evaluate = list(product(*weight_ranges))
     
-    # Optionally, limit the number of combinations if it's too large
-    max_combinations = 100  # Adjust this value based on your computational resources
-    if len(weights_to_evaluate) > max_combinations:
-        print("Cutting combinations")
-        weights_to_evaluate = weights_to_evaluate[:max_combinations]
-    
+    # Filter out cases where all weights are zero or all weights are the same (except 1)
+    weights_to_evaluate = list(filter(lambda w: 
+        any(w) and  # at least one weight is non-zero
+        not (len(set(w)) == 1 and w[0] != 1),  # not all weights are the same, unless they're all 1
+        weights_to_evaluate
+    ))
+
+    if len(weights_to_evaluate) > 500:
+        print(f"It's probably not viable to evaluate {len(weights_to_evaluate)} weight combinations.")
+        exit(-1)
+
     return weights_to_evaluate
 
 
@@ -200,31 +210,24 @@ def generate_weights_to_evaluate():
 from typing import Dict, List, Tuple
 from generate_joint_patterns import generate_joint_patterns
 
-def evaluate_data_mix(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: str, params_single: str) -> Tuple[int, int, int]:
+def evaluate_data_mix(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: str, params_single: str, language: str) -> Tuple[int, int, int]:
     output_file = "work/all.pat"
-    encoded_output_file = "work/all.pat.enc"
 
     print(f"Evaluating weights: {weights}")
-    translation_dict = generate_joint_patterns(ipa_files, list(weights), encoded_output_file, params_ipa)
-    print(translation_dict)
-    
-    # Decode the pattern file
-    decode_pattern_file(encoded_output_file, output_file, {v: k for k, v in translation_dict.items()})
+    generate_joint_patterns(ipa_files, list(weights), output_file, params_ipa)
+
     print(f"Joint IPA patterns saved to: {output_file}")
 
-    return evaluate_patterns(output_file, "groundtruth/uk-full-wiktionary.wlh", "work/uk.ipa.wls", "uk", params_single)
+    return evaluate_patterns(output_file, get_groundtruth_for(language), f'work/{language}.ipa.wls', language, params_single)
 
+#print(evaluate_data_mix(["work/sk.ipa.wlh", "work/uk.ipa.wlh"], (8,1), params_ipa, params_single, 'uk'))
 
-if __name__ == "__main__":
+def run_with_params(params_ipa, params_single):
     ipa_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
     results: List[Tuple[Tuple[int, ...], Tuple[int, ...]]] = []
     weights_to_evaluate = generate_weights_to_evaluate()
-    output_file = "work/all.pat"
-    encoded_output_file = "work/all.pat.enc"
-    params_ipa = "ipa-sojka-correctoptimized.par"
-    params_single = "csskhyphen.par"
     for weights in weights_to_evaluate:
-        results.append((weights, evaluate_data_mix(ipa_files, weights, params_ipa, params_single)))
+        results.append((weights, evaluate_data_mix(ipa_files, weights, params_ipa, params_single, "uk")))
 
 
     import json
@@ -244,7 +247,7 @@ if __name__ == "__main__":
     }
 
     if os.path.exists("work/hyph-uk.tex"):
-        (g, b, m) = validate("groundtruth/uk-full-wiktionary.wlh", "work/hyph-uk.tex")
+        (g, b, m) = validate_using_patgen("groundtruth/uk-full-wiktionary.wlh", "work/hyph-uk.tex")
         json_report["validation_results"] = [ (g, b, m)]
 
     # Save results to a JSON file
@@ -253,3 +256,8 @@ if __name__ == "__main__":
         json.dump(json_report, f, indent=2)
 
     print(f"Results saved to: {output_filename}")
+
+if __name__ == "__main__":
+    run_with_params("csskhyphen.par", "csskhyphen.par")
+    run_with_params("ipa-verysmall.par", "csskhyphen.par")
+    run_with_params("ipa-verybig.par", "csskhyphen.par")

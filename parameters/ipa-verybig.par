@@ -1,0 +1,15 @@
+hyph_start_finish[1]='1 1'
+hyph_start_finish[2]='2 2'
+hyph_start_finish[3]='3 3'
+hyph_start_finish[4]='4 4'
+
+pat_start_finish[1]='1 5'
+pat_start_finish[2]='2 6'
+pat_start_finish[3]='3 8'
+pat_start_finish[4]='3 9'
+
+
+good_bad_thres[1]='1 1 1'
+good_bad_thres[2]='1 5 1'
+good_bad_thres[3]='1 1 1'
+good_bad_thres[4]='1 10 1'

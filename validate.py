@@ -1,13 +1,13 @@
+import re
 import subprocess
 import os
-import shutil
 # Directly uses patgen to get data on the validation perf of a given validation wl and a given pattern set.
 
 WORKDIR = '/var/tmp/validate-patterns'
 os.makedirs(WORKDIR, exist_ok=True)
 
 # expects both wlh and pat to be in UTF-8
-def validate(wlh, pat, lang):
+def validate_using_patgen(wlh, pat, lang):
     if lang != 'uk':
         print('must be ukr')
         exit(1)
@@ -31,8 +31,17 @@ def validate(wlh, pat, lang):
 
     stdout, stderr = process.communicate(input=patgen_input)
 
-    print(stdout)
-    print(stderr)
+    print(stderr, sys.stderr)
+
+    # Extract counts using a more precise method
+    pattern = r'(\d+) good, (\d+) bad, (\d+) missed'
+    match = re.search(pattern, stdout)
+    
+    if match:
+        return tuple(map(int, match.groups()))
+    else:
+        print("Failed to extract counts from patgen output.", sys.stderr)
+        return None
 
 
 #validate('groundtruth/uk-full-wiktionary.wlh', '/var/tmp/ipa-patterns/uk.new.pat', 'uk')
@@ -50,5 +59,5 @@ if __name__ == "__main__":
     pat_file = sys.argv[2]
     lang = sys.argv[3]
     
-    validate(wlh_file, pat_file, lang)
+    validate_using_patgen(wlh_file, pat_file, lang)
 
