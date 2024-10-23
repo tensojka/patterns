@@ -6,7 +6,7 @@
   <title>JSON Analyzer</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       margin: 20px;
     }
     textarea {
@@ -31,6 +31,12 @@
     th {
       background-color: #f2f2f2;
     }
+    .best-good {
+      background-color: #90EE90;  /* Light green */
+    }
+    .best-bad {
+      background-color: #FFB6C1;  /* Light pink */
+    }
   </style>
 </head>
 <body>
@@ -46,69 +52,81 @@
 
 <script>
   function analyzeJson() {
-    // Clear previous results
     document.getElementById('resultSection').innerHTML = '';
-
-    // Get the JSON input from the user
     let jsonInput = document.getElementById('jsonInput').value;
 
     try {
-      // Parse the JSON
       let data = JSON.parse(jsonInput);
-
-      // Get IPA file names
       let ipaFiles = data.run_params.ipa_files;
 
-      // Create a table to show statistics
+      // Find best results first
+      let bestGood = -1;
+      let bestBad = Infinity;
+      let bestGoodIndex = -1;
+      let bestBadIndex = -1;
+
+      data.results.forEach((result, index) => {
+        let stats = result[1];
+        let good = stats[0];
+        let bad = stats[1];
+        
+        if (good + bad > 0) {
+          let percentGood = (good / (good + bad)) * 100;
+          let percentBad = (bad / (good + bad)) * 100;
+          
+          if (percentGood > bestGood) {
+            bestGood = percentGood;
+            bestGoodIndex = index;
+          }
+          if (percentBad < bestBad) {
+            bestBad = percentBad;
+            bestBadIndex = index;
+          }
+        }
+      });
+
+      // Create table
       let resultHtml = '<table>';
       resultHtml += '<tr><th>Weight Combination</th>';
-
-      // Add IPA file columns
       ipaFiles.forEach(file => {
         resultHtml += `<th>${file}</th>`;
       });
-
       resultHtml += '<th>% Good</th><th>% Bad</th><th>% Missed</th></tr>';
 
-      // Iterate over the results and calculate statistics
-      for (let i = 0; i < data.results.length; i++) {
-        let weights = data.results[i][0];  // Weights for each IPA file
-        let stats = data.results[i][1];    // Good, Bad, Missed
-
+      // Add rows with highlighting
+      data.results.forEach((result, index) => {
+        let weights = result[0];
+        let stats = result[1];
         let good = stats[0];
         let bad = stats[1];
         let missed = stats[2];
         
-        // Avoid division by zero
-        if (good + bad === 0) {
-          continue;
-        }
+        if (good + bad === 0) return;
 
         let percentGood = (good / (good + bad)) * 100;
         let percentBad = (bad / (good + bad)) * 100;
         let percentMissed = (missed / (good + bad)) * 100;
 
         resultHtml += '<tr>';
-
-        // Show the weight combination
-        resultHtml += '<td>Run ' + (i + 1) + '</td>';
-
-        // Add the weight for each IPA file
+        resultHtml += '<td>Run ' + (index + 1) + '</td>';
+        
         weights.forEach(weight => {
           resultHtml += `<td>${weight}</td>`;
         });
 
-        // Add % Good and % Missed
-        resultHtml += `<td>${percentGood.toFixed(2)}%</td>`;
-        resultHtml += `<td>${percentBad.toFixed(2)}%</td>`;
-        resultHtml += `<td>${percentMissed.toFixed(2)}%</td>`;
-
+        // Add highlighting classes for best results
+        let goodClass = index === bestGoodIndex ? 'best-good' : '';
+        let badClass = index === bestBadIndex ? 'best-bad' : '';
+        
+        resultHtml += `<td class="${goodClass}">${percentGood.toFixed(2)}% (${good})</td>`;
+        resultHtml += `<td class="${badClass}">${percentBad.toFixed(2)}% (${bad})</td>`;
+        resultHtml += `<td>${percentMissed.toFixed(2)}% (${missed})</td>`;
         resultHtml += '</tr>';
-      }
+      });
 
       resultHtml += '</table>';
 
-      // Add validation results (as percentages)
+      // Add validation results
       let validationResults = data.validation_results[0];
       let validGood = validationResults[0];
       let validBad = validationResults[1];
@@ -122,15 +140,14 @@
         resultHtml += '<h3>Validation Results</h3>';
         resultHtml += '<table>';
         resultHtml += '<tr><th>% Good</th><th>% Bad</th><th>% Missed</th></tr>';
-        resultHtml += `<tr><td>${percentValidGood.toFixed(2)}%</td><td>${percentValidBad.toFixed(2)}%</td><td>${percentValidMissed.toFixed(2)}%</td></tr>`;
+        resultHtml += `<tr><td>${percentValidGood.toFixed(2)}% (${validGood})</td><td>${percentValidBad.toFixed(2)}% (${validBad})</td><td>${percentValidMissed.toFixed(2)}% (${validMissed})</td></tr>`;
         resultHtml += '</table>';
       }
 
-      // Display the table in the result section
       document.getElementById('resultSection').innerHTML = resultHtml;
 
     } catch (error) {
-      // Handle JSON parsing errors
+      console.error(error);
       document.getElementById('resultSection').innerHTML = '<p style="color: red;">Invalid JSON input. Please check the format.</p>';
     }
   }
