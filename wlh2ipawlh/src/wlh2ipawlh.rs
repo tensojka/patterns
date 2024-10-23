@@ -7,19 +7,16 @@ use transform_hyphens::transform::transform;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::HashMap;
 use translit::{Transliterator, ToLatin, gost779b_ua, gost779b_ru};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use std::thread;
 use dashmap::DashMap;
 use std::sync::Arc;
-use std::sync::Mutex;
 use serde::Serialize;
-use rayon::prelude::*;
 use transform_hyphens::utils::{get_language, get_espeak_ipa_batch};
 
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 const BATCH_SIZE: usize = 500;
-const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5 minutes
 
 fn transliterate_ukrainian(input: &str) -> String {
     let tr = Transliterator::new(gost779b_ua());
@@ -115,28 +112,9 @@ fn main() -> std::io::Result<()> {
         .collect();
 
     println!("Processing words:");
-    let out_file = Arc::new(Mutex::new(File::create(output_file)?));
+    let mut out_file = File::create(output_file)?;
     let ipa_file = Path::new("work").join("ipacache").join(format!("{}.json", language.replace('/', "-")));
     let ipa_map = load_ipa_map(&ipa_file);
-
-    // Spawn a new thread for periodic cache saving
-    let ipa_map_clone = Arc::clone(&ipa_map);
-    let ipa_file_clone = ipa_file.clone();
-    thread::spawn(move || {
-        let mut last_save = Instant::now();
-        loop {
-            thread::sleep(Duration::from_secs(60)); // Check every minute
-            if last_save.elapsed() >= CACHE_INTERVAL {
-                if let Err(e) = save_ipa_cache(&ipa_map_clone, &ipa_file_clone) {
-                    eprintln!("Error saving IPA cache: {}", e);
-                }
-                last_save = Instant::now();
-                
-                // Shrink the DashMap to release unused memory
-                ipa_map_clone.shrink_to_fit();
-            }
-        }
-    });
 
     // Create an Arc to share the static WORD_COUNT across threads
     let shared_word_count = Arc::new(&WORD_COUNT);
@@ -152,21 +130,19 @@ fn main() -> std::io::Result<()> {
         }
     });
 
-    // Process all words in batches using parallel iteration
-    words.par_chunks(BATCH_SIZE).for_each(|chunk| {
+    for chunk in words.chunks(BATCH_SIZE) {
         let batch_results = process_word_batch(chunk, language, Arc::clone(&ipa_map));
         
         // Write transformed words to file
-        let mut file_guard = out_file.lock().unwrap();
         for (transformed_word, stripped_word, ipa_word) in batch_results {
-            if !transformed_word.contains("(") { // FIXME – ignoring all that start with (en)
-               writeln!(file_guard, "{}", transformed_word).unwrap();
+            if !transformed_word.contains("(") {
+                writeln!(out_file, "{}", transformed_word)?;
             }
             
             // Update IPA map
             ipa_map.insert(stripped_word, ipa_word);
         }
-    });
+    }
 
     let total_words = WORD_COUNT.load(Ordering::Relaxed);
 
