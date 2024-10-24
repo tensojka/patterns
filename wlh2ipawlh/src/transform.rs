@@ -13,7 +13,23 @@ fn ipa_to_ascii(c: char) -> char {
         'ʒ' => 'z',
         'ɛ' => 'e',
         'š' => 's',
-        'ɑ' => 'a',  // Map 'ɑ' to 'a'
+        'ɑ' => 'a', // Map 'ɑ' to 'a'
+        // Now, also map cyrillic letters to their latin equivalents!
+        'а' => 'a',
+        'б' => 'b',
+        'в' => 'v',
+        'д' => 'd',
+        'е' => 'e',
+        'і' => 'i',
+        'к' => 'k',
+        'м' => 'm',
+        'н' => 'n',
+        'о' => 'o',
+        'п' => 'p',
+        'р' => 'r',
+        'с' => 's',
+        'т' => 't',
+        'у' => 'u',
         _ => c,
     }
 }
