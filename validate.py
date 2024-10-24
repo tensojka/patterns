@@ -2,6 +2,7 @@ import re
 import subprocess
 import os
 import sys
+from typing import Optional, Tuple
 # Directly uses patgen to get data on the validation perf of a given validation wl and a given pattern set.
 
 WORKDIR = '/var/tmp/validate-patterns'
@@ -28,7 +29,7 @@ def clean_pattern_dot_tex(tex_file: str) -> str:
     return result_filename
 
 # expects both wlh and pat to be in UTF-8
-def validate_using_patgen(wlh, pat, lang):
+def validate_using_patgen(wlh, pat, lang) -> Optional[Tuple[int, int, int]]:
     if lang != 'uk':
         print('must be ukr')
         exit(1)
@@ -60,7 +61,7 @@ def validate_using_patgen(wlh, pat, lang):
     # Extract counts using a more precise method
     pattern = r'(\d+) good, (\d+) bad, (\d+) missed'
     match = re.search(pattern, stdout)
-    
+
     if match:
         return tuple(map(int, match.groups()))
     else:
@@ -75,15 +76,14 @@ def validate_using_patgen(wlh, pat, lang):
 
 if __name__ == "__main__":
     import sys
-    
+
     if len(sys.argv) != 4:
         print("Usage: python validate.py <wlh_file> <pat_file> <lang>")
         sys.exit(1)
-    
+
     wlh_file = sys.argv[1]
     pat_file = sys.argv[2]
     lang = sys.argv[3]
-    
+
     good, bad, missed = validate_using_patgen(wlh_file, pat_file, lang)
     print(f"{good} good, {bad} bad, {missed} missed")
-
