@@ -21,9 +21,10 @@ def generate_translate_file(translate_filename, inp_filename, inp2_filename=None
     with open(inp_filename, 'r', encoding='utf-8') as file:
         text = file.read()
     unique_chars = set(text)
-    with open(inp2_filename, 'r', encoding='utf-8') as f:
-        t2 = f.read()
-    unique_chars = unique_chars | set(t2)
+    if inp2_filename:
+        with open(inp2_filename, 'r', encoding='utf-8') as f:
+            t2 = f.read()
+        unique_chars = unique_chars | set(t2)
     chars_for_translatefile = unique_chars - set(['\n', '-', '<', '/', '.'])
 
     with open(translate_filename, 'wb') as f:

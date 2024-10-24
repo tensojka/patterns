@@ -320,3 +320,8 @@ nepomuze
 ад*сор*б.у-в.а-т.и-ся (adsorbuvatisja)
 
 ad-sʌr-bu-va-ti-sja
+
+
+přidal jsem do ipa_to_ascii korekci pro znaky, které se vypadjí skoro stejně v cyrilici a latince.
+
+(31788, 5768, 7892)

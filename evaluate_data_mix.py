@@ -40,57 +40,37 @@ def get_groundtruth_for(language: str):
     else:
         return f'groundtruth/{language}-wiktionary.wlh'
 
+from count_unique_unicode import generate_translate_file
+from shutil import copy
+
+# expects input file to be absolute path
 def generate_non_ipa_patterns(input_file: str, output_file: str, language: str, params_single_lang: str):
     # Create a custom translate file
     translate_file = os.path.join(TEMP_WORKDIR, f"{language}.tra")
-    encoding_dict = create_translate_file(input_file, translate_file)
+    generate_translate_file(translate_file, input_file)
 
     # Generate patterns using patgen
     params_file = os.path.abspath(os.path.join(os.path.dirname(__file__), 'parameters', params_single_lang))
-    encoded_input_file = os.path.join(TEMP_WORKDIR, f"{language}.encoded.wlh")
-    encode_file(input_file, encoded_input_file, encoding_dict)
 
     make_full_pattern_script = os.path.abspath(os.path.join(os.path.dirname(__file__), 'make-full-pattern.sh'))
 
     subprocess.run([
-        "bash", 
-        make_full_pattern_script, 
-        encoded_input_file, 
-        translate_file, 
-        params_file
-    ], cwd=TEMP_WORKDIR)
+        "bash",
+        make_full_pattern_script,
+        input_file,
+        translate_file,
+        params_file,
+    ], cwd=TEMP_WORKDIR, stdout=subprocess.DEVNULL)
 
     # Convert the resulting patterns back to Unicode
     pattern_final = os.path.join(TEMP_WORKDIR, "pattern.final")
     if os.path.exists(pattern_final):
-        decode_pattern_file(pattern_final, output_file, {v: k for k, v in encoding_dict.items()})
+        copy(pattern_final, output_file)
     else:
         print(f"Error: pattern.final was not generated for {language}")
-    
-    pattmp_4 = os.path.join(TEMP_WORKDIR, "pattmp.4")
-    if os.path.exists(pattmp_4):
-        decode_pattern_file(pattmp_4, pattmp_4+'.nonipa.training.utf8', {v: k for k, v in encoding_dict.items()})
 
-def create_translate_file(input_file: str, translate_file: str) -> OrderedDict:
-    chars = OrderedDict()
-    with open(input_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            for char in line.strip():
-                if char == '-':
-                    continue
-                if ord(char) >= 128 and char not in chars:
-                    chars[char] = len(chars) + 162
+    #pattmp_4 = os.path.join(TEMP_WORKDIR, "pattmp.4")
 
-    with open(translate_file, 'wb') as f:
-        f.write(b" 1 1\n")
-        # Write ASCII lowercase letters (a-z)
-        for ascii_char in range(ord('a'), ord('z') + 1):
-            f.write(b" %c\n" % ascii_char)
-        # Write the custom characters
-        for eight_bit in chars.values():
-            f.write(b" %c\n" % eight_bit)
-
-    return chars
 
 def encode_file(input_file: str, output_file: str, encoding_dict: OrderedDict):
     with open(input_file, 'r', encoding='utf-8') as f_in, open(output_file, 'wb') as f_out:
