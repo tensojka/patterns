@@ -5,7 +5,7 @@ from itertools import product
 from typing import Tuple
 from validate import validate_using_patgen
 
-TEMP_WORKDIR = '/var/tmp/ipa-patterns/' 
+TEMP_WORKDIR = '/var/tmp/ipa-patterns/'
 
 def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_training_wordlist: str, language: str, params_single_lang: str) -> Tuple[int, int, int]:
     os.makedirs(TEMP_WORKDIR, exist_ok=True)
@@ -114,16 +114,16 @@ def generate_weights_to_evaluate():
     # Define the range of values for each weight
     weight_ranges = [
         (0, 1, 3), # pl
-        (0, 1, 3), # sk
-        (0, 1, 3), # uk
-        (0, 1, 3) # ru
+        (0, 1, 3, 5, 7), # sk
+        (0, 1, 3, 5, 7), # uk
+        (0, 1, 3, 5, 7) # ru
     ]
 
     # Generate all combinations of weights
     weights_to_evaluate = list(product(*weight_ranges))
-    
+
     # Filter out cases where all weights are zero or all weights are the same (except 1)
-    weights_to_evaluate = list(filter(lambda w: 
+    weights_to_evaluate = list(filter(lambda w:
         any(w) and  # at least one weight is non-zero
         not (len(set(w)) == 1 and w[0] != 1),  # not all weights are the same, unless they're all 1
         weights_to_evaluate
@@ -192,3 +192,6 @@ if __name__ == "__main__":
     run_with_params("csskhyphen.par", "csskhyphen.par")
     run_with_params("ipa-verysmall.par", "csskhyphen.par")
     run_with_params("ipa-verybig.par", "csskhyphen.par")
+    run_with_params("ipa-sojkacorrectoptimized.par", "csskhyphen.par")
+    run_with_params("csskhyphen.par", "ipa-sojkacorrectoptimized.par")
+    run_with_params("ipa-verybig.par", "ipa-sojkacorrectoptimized.par")
