@@ -195,3 +195,5 @@ if __name__ == "__main__":
     run_with_params("ipa-sojkacorrectoptimized.par", "csskhyphen.par")
     run_with_params("csskhyphen.par", "ipa-sojkacorrectoptimized.par")
     run_with_params("ipa-verybig.par", "ipa-sojkacorrectoptimized.par")
+    run_with_params("haralambous-default.par", "csskhyphen.par")
+    run_with_params("csskhyphen.par", "haralambous-default.par")
