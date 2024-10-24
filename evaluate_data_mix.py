@@ -27,9 +27,10 @@ def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_t
     non_ipa_patterns_file = os.path.join(TEMP_WORKDIR, f"{language}.new.pat")
     generate_non_ipa_patterns(hyphenated_file, non_ipa_patterns_file, language, params_single_lang)
 
-    # Evaluation will be done later
     print(f"Patterns generated for {language} in {non_ipa_patterns_file}. Evaluation:")
-    return validate_using_patgen(groundtruth_filename, non_ipa_patterns_file, language)
+    good, bad, missed = validate_using_patgen(groundtruth_filename, non_ipa_patterns_file, language)
+    print(f"{good} good, {bad} bad, {missed} missed")
+    return good, bad, missed
 
 
 def get_groundtruth_for(language: str):
@@ -113,10 +114,10 @@ def run_if_needed(cmd, source_file, target_file, description):
 def generate_weights_to_evaluate():
     # Define the range of values for each weight
     weight_ranges = [
-        (0, 1, 3), # pl
-        (0, 1, 3, 5, 7), # sk
-        (0, 1, 3, 5, 7), # uk
-        (0, 1, 3, 5, 7) # ru
+        (0, 1), # pl
+        (0, 1, 3, 5), # sk
+        (0, 1, 3), # uk
+        (0, 1, 3, 5) # ru
     ]
 
     # Generate all combinations of weights
@@ -151,8 +152,6 @@ def evaluate_data_mix(ipa_files: List[str], weights: Tuple[int, ...], params_ipa
 
     return evaluate_patterns(output_file, get_groundtruth_for(language), f'work/{language}.ipa.wls', language, params_single)
 
-#print(evaluate_data_mix(["work/sk.ipa.wlh", "work/uk.ipa.wlh"], (8,1), params_ipa, params_single, 'uk'))
-
 def run_with_params(params_ipa, params_single):
     ipa_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
     results: List[Tuple[Tuple[int, ...], Tuple[int, ...]]] = []
@@ -172,7 +171,7 @@ def run_with_params(params_ipa, params_single):
             "ipa_files": ipa_files,
             "params_ipa" : params_ipa,
             "params_single": params_single,
-            "pipeline_version": 1
+            "pipeline_version": 2
         },
         "results": results
     }
@@ -189,6 +188,7 @@ def run_with_params(params_ipa, params_single):
     print(f"Results saved to: {output_filename}")
 
 if __name__ == "__main__":
+    #print(evaluate_data_mix(["work/sk.ipa.wlh", "work/ru.ipa.wlh"], (3,1), "csskhyphen.par", "csskhyphen.par", 'uk'))
     run_with_params("csskhyphen.par", "csskhyphen.par")
     run_with_params("ipa-verysmall.par", "csskhyphen.par")
     run_with_params("ipa-verybig.par", "csskhyphen.par")

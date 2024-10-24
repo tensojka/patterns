@@ -29,7 +29,7 @@ def clean_pattern_dot_tex(tex_file: str) -> str:
     return result_filename
 
 # expects both wlh and pat to be in UTF-8
-def validate_using_patgen(wlh, pat, lang) -> Optional[Tuple[int, int, int]]:
+def validate_using_patgen(wlh, pat, lang) -> Tuple[int, int, int]:
     if lang != 'uk':
         print('must be ukr')
         exit(1)
@@ -63,11 +63,10 @@ def validate_using_patgen(wlh, pat, lang) -> Optional[Tuple[int, int, int]]:
     match = re.search(pattern, stdout)
 
     if match:
-        return tuple(map(int, match.groups()))
+        return tuple(map(int, match.groups())) # type: ignore
     else:
-        print("Failed to extract counts from patgen output.", sys.stderr)
-        print(stdout)
-        return None
+        print(stdout, sys.stderr)
+        raise Exception("Failed to extract counts from patgen output.")
 
 
 #validate('groundtruth/uk-full-wiktionary.wlh', '/var/tmp/ipa-patterns/uk.new.pat', 'uk')

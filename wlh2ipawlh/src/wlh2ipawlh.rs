@@ -7,7 +7,7 @@ use transform_hyphens::transform::transform;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::HashMap;
 use translit::{Transliterator, ToLatin, gost779b_ua, gost779b_ru};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use std::thread;
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -19,7 +19,6 @@ use transform_hyphens::utils::{get_language, get_espeak_ipa_batch};
 static WORD_COUNT: AtomicUsize = AtomicUsize::new(0);
 
 const BATCH_SIZE: usize = 500;
-const CACHE_INTERVAL: Duration = Duration::from_secs(300); // Save cache every 5 minutes
 
 fn transliterate_ukrainian(input: &str) -> String {
     let tr = Transliterator::new(gost779b_ua());

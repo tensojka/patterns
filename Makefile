@@ -56,5 +56,7 @@ work/ukwiktionary-20240920-pages-articles.xml:
 	wget -O work/ukwiktionary-20240920-pages-articles.xml.bz2 https://dumps.wikimedia.org/ukwiktionary/20240920/ukwiktionary-20240920-pages-articles.xml.bz2
 	bzip2 -d work/ukwiktionary-20240920-pages-articles.xml.bz2
 
+eval: work/uk.wlh work/uk.ipa.wls work/ru.wlh work/ru.ipa.wls work/sk.wlh work/sk.ipa.wls work/pl.wlh work/pl.ipa.wls
+
 clean:
 	rm -rf work/*
