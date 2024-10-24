@@ -118,7 +118,6 @@ fn align_sequences(seq1: &[char], seq2: &[char]) -> (Vec<Option<usize>>, Vec<Opt
     (align1, align2)
 }
 
-
 // Function to transfer hyphens between two strings
 fn transfer_hyphens(hyphenated: &str, non_hyphenated: &str) -> String {
     let simplified_hyphenated: Vec<char> = simplify(hyphenated);
@@ -173,8 +172,15 @@ mod tests {
     fn test_transfer_hyphens() {
         assert_eq!(transfer_hyphens("укра-ї-на", "ukrɑina"), "ukrɑ-i-na");
         assert_eq!(transfer_hyphens("укра-ї-ни", "ukrɑini"), "ukrɑ-i-ni");
-        assert_eq!(transfer_hyphens("ukra-yin-s`ke", "ukrɑinski"), "ukrɑ-in-ski");
+        assert_eq!(
+            transfer_hyphens("ukra-yin-s`ke", "ukrɑinski"),
+            "ukrɑ-in-ski"
+        );
         assert_eq!(transfer_hyphens("ukra-yi-ni", "ukrɑini"), "ukrɑ-i-ni");
         assert_eq!(transfer_hyphens("ukra-yi-nu", "ukrɑinu"), "ukrɑ-i-nu");
+        assert_eq!(
+            transfer_hyphens("ad-sʌr-bu-va-ti-sja", "адсорбуватися"),
+            "ад-сор-бу-ва-ти-ся"
+        )
     }
 }

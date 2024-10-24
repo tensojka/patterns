@@ -244,3 +244,79 @@ params_single = "csskhyphen.par"
 
 17980 good, 7648 bad, 21700 missed
 45.31 %, 19.27 %, 54.69 %
+
+
+---
+
+га.р-ма*та – prakticky nesmysl pred souhlaskou
+har-mɑ-ta cyr>ipa spravne
+
+за*д-о.во.ль-ни*ти
+
+opravdu spatne:
+ре*це.п-ція
+о-со.ч-ник
+
+prvni . je chyba ve validaci, druha . je opet stejna kategorie chyby
+кон-'.юн.к-ту*ра
+
+---
+23.10.
+
+81 ruznych vah trvalo cca hodinu
+
+pro pět špatně rozdělených slov, které správně rozdělí původní vzory, najít chybu:
+
+zkousim s parametry "ipa-sojka-correctoptimized.par", "ipa-sojka-correctoptimized.par", vysledky na validaci to dava tyto:
+13585 good, 6387 bad, 26095 missed
+
+pro srovnani originalni vzory maji: 34420 good, 5145 bad, 5260 missed
+
+(vstup je jen uk.wlh, delky 200k)
+
+taky jsem zkousel delku 700k:
+(13024, 6364, 26656)
+
+1. Ві*кі-п.е-ді-я
+v uk.wlh (jediny vstup): ві-кі-пе-дії
+uk.new.wlh (po transferu a celem IPA kolecku): ві-кі-пе-дії
+
+distilace nefunguje??
+
+vstup: work/uk.wlh
+výstup: "distilované" vzory
+parametry: ipa-sojka-correctoptimized
+34256 good, 4860 bad, 5424 missed
+
+parametry: csskhyphen.par
+34175 good, 4863 bad, 5505 missed
+
+což je arguably lepší než orig.
+
+```
+distilled from uk.wlh (pure wikipedia wordlist hyphd with old patterns):
+(34256, 4860, 5424)
+distilled from uk.new.wlh (after conversion to ipa, ipa pattern training, conversion from ipa):
+(15398, 6607, 24282)
+orig:
+(34420, 5145, 5260)
+```
+
+## Zkusme prevest z ipy a rovnou trenovat a preskocit trenovani joint IPA patterns
+
+transfer to ipa and back, no 'joint ipa pattern training':
+(17279, 9121, 22401)
+
+vuala, tady je problém.
+
+a co když zkusím namixovat do uk.wls ten "groundtruth"?
+
+nepomuze
+
+---
+
+24.10.
+
+ад*сор*б.у-в.а-т.и-ся (adsorbuvatisja)
+
+ad-sʌr-bu-va-ti-sja
