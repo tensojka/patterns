@@ -77,15 +77,16 @@ def train_joint_patterns(joint_ipa_file, translate_file, params_file, output_fil
         process = subprocess.Popen(
             command,
             cwd=output_dir,
+            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
             universal_newlines=True
         )
         
-        for line in process.stderr:
-            sys.stderr.write(line)
-            sys.stderr.flush()
+        _, stderr = process.communicate()
+        if process.returncode != 0:
+            sys.stderr.write(stderr)
         
         return_code = process.wait()
         
