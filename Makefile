@@ -10,13 +10,13 @@ work/%.ipa.wlh: work/%.wlh
 	cd wlh2ipawlh; RUSTFLAGS="-C target-cpu=native -C opt-level=3 -C codegen-units=1" cargo build --release
 	nice ./wlh2ipawlh/target/release/wlh2ipawlh $< $@
 
-work/%.frqwl: work/%
+work/%.frqwl: work/%wikidir
 	python wiki2frqwl.py $< $@
 
 work/%.wls: work/%.frqwl
 	python frqwl2wls.py $@ $<
 
-work/%: work/%wiki-latest-pages-articles.xml
+work/%wikidir: work/%wiki-latest-pages-articles.xml
 	wikiextractor -o $@ $<
 
 %.xml: %.xml.bz2
