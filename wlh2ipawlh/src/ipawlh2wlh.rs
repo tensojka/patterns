@@ -77,7 +77,6 @@ fn main() -> std::io::Result<()> {
         }
     });
 
-    println!("Processing words:");
     let out_file = Arc::new(Mutex::new(File::create(output_file)?));
     let ipa_map = load_ipa_maps(input_file.clone());
 

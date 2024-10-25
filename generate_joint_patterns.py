@@ -79,14 +79,11 @@ def train_joint_patterns(joint_ipa_file, translate_file, params_file, output_fil
             cwd=output_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-            universal_newlines=True
         )
         
         _, stderr = process.communicate()
         if process.returncode != 0:
-            sys.stderr.write(stderr)
+            sys.stderr.write(stderr.decode('latin1', errors='replace'))
         
         return_code = process.wait()
         
@@ -94,7 +91,7 @@ def train_joint_patterns(joint_ipa_file, translate_file, params_file, output_fil
         if os.path.exists(pattern_final):
             # Copy the pattern.final file to the specified output file
             shutil.copy2(pattern_final, output_file)
-            print(f"Pattern file generated and copied to: {output_file}")
+            #print(f"Pattern file generated and copied to: {output_file}")
         else:
             print("Error: pattern.final was not generated", file=sys.stderr)
         

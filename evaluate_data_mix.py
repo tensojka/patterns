@@ -1,8 +1,8 @@
 import subprocess
 import os
-from collections import OrderedDict
+from shutil import copy
 from itertools import product
-from typing import Tuple
+from typing import Tuple, Union, List
 from validate import validate_using_patgen
 
 TEMP_WORKDIR = '/var/tmp/ipa-patterns/'
@@ -27,9 +27,9 @@ def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_t
     non_ipa_patterns_file = os.path.join(TEMP_WORKDIR, f"{language}.new.pat")
     generate_non_ipa_patterns(hyphenated_file, non_ipa_patterns_file, language, params_single_lang)
 
-    print(f"Patterns generated for {language} in {non_ipa_patterns_file}. Evaluation:")
+    #print(f"Patterns generated for {language} in {non_ipa_patterns_file}. Evaluation:")
     good, bad, missed = validate_using_patgen(groundtruth_filename, non_ipa_patterns_file, language)
-    print(f"{good} good, {bad} bad, {missed} missed")
+    #print(f"{good} good, {bad} bad, {missed} missed")
     return good, bad, missed
 
 
@@ -42,7 +42,7 @@ def get_groundtruth_for(language: str):
         return f'groundtruth/{language}-wiktionary.wlh'
 
 from count_unique_unicode import generate_translate_file
-from shutil import copy
+
 
 # expects input file to be absolute path
 def generate_non_ipa_patterns(input_file: str, output_file: str, language: str, params_single_lang: str):
@@ -63,7 +63,6 @@ def generate_non_ipa_patterns(input_file: str, output_file: str, language: str, 
         params_file,
     ], cwd=TEMP_WORKDIR, stdout=subprocess.DEVNULL)
 
-    # Convert the resulting patterns back to Unicode
     pattern_final = os.path.join(TEMP_WORKDIR, "pattern.final")
     if os.path.exists(pattern_final):
         copy(pattern_final, output_file)
@@ -72,28 +71,6 @@ def generate_non_ipa_patterns(input_file: str, output_file: str, language: str, 
 
     #pattmp_4 = os.path.join(TEMP_WORKDIR, "pattmp.4")
 
-
-def encode_file(input_file: str, output_file: str, encoding_dict: OrderedDict):
-    with open(input_file, 'r', encoding='utf-8') as f_in, open(output_file, 'wb') as f_out:
-        for line in f_in:
-            encoded_line = bytearray()
-            for char in line:
-                if ord(char) < 128:
-                    encoded_line.append(ord(char))
-                else:
-                    encoded_line.append(encoding_dict.get(char, ord(char)))
-            f_out.write(encoded_line)
-
-def decode_pattern_file(input_file, output_file, inverted_encoding_dict):
-    with open(input_file, 'rb') as f_in, open(output_file, 'w', encoding='utf-8') as f_out:
-        for line in f_in:
-            decoded_line = ''
-            for byte in line:
-                if byte > 161:
-                    decoded_line += inverted_encoding_dict.get(byte, chr(byte))
-                else:
-                    decoded_line += chr(byte)
-            f_out.write(decoded_line)
 
 def run_if_needed(cmd, source_file, target_file, description):
     if not os.path.exists(target_file) or not os.path.exists(source_file):
@@ -114,10 +91,10 @@ def run_if_needed(cmd, source_file, target_file, description):
 def generate_weights_to_evaluate():
     # Define the range of values for each weight
     weight_ranges = [
-        (0, 1), # pl
-        (0, 1, 3, 5), # sk
-        (0, 1, 3), # uk
-        (0, 1, 3, 5) # ru
+        (0,), # pl
+        (0, 1, 3), # sk
+        (0, 1), # uk
+        (0, 1, 3) # ru
     ]
 
     # Generate all combinations of weights
@@ -136,28 +113,49 @@ def generate_weights_to_evaluate():
 
     return weights_to_evaluate
 
+def create_temp_param_file(params_tuple: Tuple[int, ...], base_param_file: str) -> str:
+    """Creates a temporary parameter file based on the input tuple and returns its path"""
+    temp_param_path = os.path.join(TEMP_WORKDIR, f"temp_params_{hash(params_tuple)}.par")
+    
+    # Copy the base parameter file content
+    with open(os.path.join('parameters', base_param_file)) as f:
+        param_content = f.readlines()
+    
+    # Replace good_bad_thres lines with new values
+    param_content = [line for line in param_content if not line.startswith('good_bad_thres')]
+    for i, bad_value in enumerate(params_tuple, 1):
+        param_content.append(f"good_bad_thres[{i}]='1 {bad_value} 5'\n")
+    
+    with open(temp_param_path, 'w') as f:
+        f.writelines(param_content)
+    
+    return temp_param_path
 
-#evaluate_patterns("work/all.pat", "groundtruth/cs-ujc.wlh", "work/cs.ipa.wls", "cs")
 
-from typing import Dict, List, Tuple
 from generate_joint_patterns import generate_joint_patterns
 
-def evaluate_data_mix(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: str, params_single: str, language: str) -> Tuple[int, int, int]:
+def sample(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: Union[str, Tuple[int, ...]], params_single: Union[str, Tuple[int, ...]], language: str) -> Tuple[int, int, int]:
     output_file = "work/all.pat"
 
-    print(f"Evaluating weights: {weights}")
-    generate_joint_patterns(ipa_files, list(weights), output_file, params_ipa)
+        # Handle tuple parameters by creating temporary parameter files
+    actual_params_ipa = (create_temp_param_file(params_ipa, 'csskhyphen.par') 
+                        if isinstance(params_ipa, tuple) else params_ipa)
+    actual_params_single = (create_temp_param_file(params_single, 'csskhyphen.par') 
+                          if isinstance(params_single, tuple) else params_single)
 
-    print(f"Joint IPA patterns saved to: {output_file}")
+    #print(f"Evaluating weights: {weights}")
+    generate_joint_patterns(ipa_files, list(weights), output_file, actual_params_ipa)
 
-    return evaluate_patterns(output_file, get_groundtruth_for(language), f'work/{language}.ipa.wls', language, params_single)
+    #print(f"Joint IPA patterns saved to: {output_file}")
+
+    return evaluate_patterns(output_file, get_groundtruth_for(language), f'work/{language}.ipa.wls', language, actual_params_single)
 
 def run_with_params(params_ipa, params_single):
     ipa_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
     results: List[Tuple[Tuple[int, ...], Tuple[int, ...]]] = []
     weights_to_evaluate = generate_weights_to_evaluate()
     for weights in weights_to_evaluate:
-        results.append((weights, evaluate_data_mix(ipa_files, weights, params_ipa, params_single, "uk")))
+        results.append((weights, sample(ipa_files, weights, params_ipa, params_single, "uk")))
 
 
     import json
@@ -188,12 +186,13 @@ def run_with_params(params_ipa, params_single):
     print(f"Results saved to: {output_filename}")
 
 if __name__ == "__main__":
-    #print(evaluate_data_mix(["work/sk.ipa.wlh", "work/ru.ipa.wlh"], (3,1), "csskhyphen.par", "csskhyphen.par", 'uk'))
+    print(sample(["work/ru.ipa.wlh"], (1,), "csskhyphen.par", "csskhyphen.par", 'uk'))
+    exit()
     run_with_params("csskhyphen.par", "csskhyphen.par")
     run_with_params("ipa-verysmall.par", "csskhyphen.par")
     run_with_params("ipa-verybig.par", "csskhyphen.par")
-    run_with_params("ipa-sojkacorrectoptimized.par", "csskhyphen.par")
-    run_with_params("csskhyphen.par", "ipa-sojkacorrectoptimized.par")
-    run_with_params("ipa-verybig.par", "ipa-sojkacorrectoptimized.par")
+    run_with_params("ipa-sojka-correctoptimized.par", "csskhyphen.par")
+    run_with_params("csskhyphen.par", "ipa-sojka-correctoptimized.par")
+    run_with_params("ipa-verybig.par", "ipa-sojka-correctoptimized.par")
     run_with_params("haralambous-default.par", "csskhyphen.par")
     run_with_params("csskhyphen.par", "haralambous-default.par")

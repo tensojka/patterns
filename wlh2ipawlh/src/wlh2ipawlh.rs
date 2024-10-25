@@ -113,7 +113,6 @@ fn main() -> std::io::Result<()> {
         .filter_map(Result::ok)
         .collect();
 
-    println!("Processing words:");
     let out_file = Arc::new(Mutex::new(File::create(output_file)?));
     let ipa_file = Path::new("work").join("ipacache").join(format!("{}.json", language.replace('/', "-")));
     let ipa_map = load_ipa_map(&ipa_file);
