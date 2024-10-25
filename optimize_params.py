@@ -52,7 +52,7 @@ def export_optimization_data(sampler):
 class PatgenSampler:
     def __init__(self):
         self.gp = GaussianProcessRegressor(
-            kernel=Matern(nu=2),
+            kernel=Matern(nu=2.5),
             normalize_y=True,
             random_state=42
         )
@@ -113,8 +113,8 @@ class PatgenSampler:
     def _random_params(self) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]:
         """Generate random parameter sets"""
         weights = tuple(np.random.choice([0, 1, 3, 5, 7], size=4))
-        params_ipa = tuple(np.random.randint(1, 6, size=4))
-        params_single = tuple(np.random.randint(1, 6, size=4))
+        params_ipa = tuple(np.random.randint(1, 7, size=4))
+        params_single = tuple(np.random.randint(1, 7, size=4))
         return weights, params_ipa, params_single
 
     def _param_distance(self, params1: Tuple[Tuple[int, ...], ...], 
@@ -246,20 +246,20 @@ input_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru
 sampler = PatgenSampler()
 
 sampler.load_state("work/model.pkl")
-# print("Randomly sampling 10 parameter sets")
-# initial_sets = sampler.suggest_batch(n_suggestions=10)
-# for params, pred_score, uncertainty in initial_sets:
-#     weights, params_ipa, params_single = params
-#     print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
+print("Randomly sampling 30 parameter sets")
+initial_sets = sampler.suggest_batch(n_suggestions=30)
+for params, pred_score, uncertainty in initial_sets:
+    weights, params_ipa, params_single = params
+    print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
+
+    # Run evaluation
+    good, bad, missed = sample(input_files, weights, params_ipa, params_single, "uk")
+    actual_score = sampler.calculate_score(good, bad, missed)
+    print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
+    print(f"Actual score: {actual_score:.3f}")
     
-#     # Run evaluation
-#     good, bad, missed = sample(input_files, weights, params_ipa, params_single, "uk")
-#     actual_score = sampler.calculate_score(good, bad, missed)
-#     print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
-#     print(f"Actual score: {actual_score:.3f}")
-    
-#     # Update model
-#     sampler.update(weights, params_ipa, params_single, actual_score)
+    # Update model
+    sampler.update(weights, params_ipa, params_single, actual_score)
 
 # Get more suggestions informed by previous scores
 for round in range(20):
