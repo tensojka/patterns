@@ -3,7 +3,7 @@
 
 let
   python39 = pkgs.python39;
-  python312 = pkgs.python312;
+  python313 = pkgs.python313;
 
   wikiextractor = python39.pkgs.buildPythonPackage rec {
     pname = "wikiextractor";
@@ -16,7 +16,11 @@ let
   };
 
   python39WithPackages = python39.withPackages (ps: [ wikiextractor ]);
-  python312WithPackages = python312.withPackages (ps: with ps; [ regex ]);
+  python313WithPackages = python313.withPackages (ps: with ps; [
+    regex 
+    numpy
+    scikit-learn
+  ]);
 
   texliveWithPackages = pkgs.texlive.withPackages (ps: [ ps.patgen ]);
 
@@ -26,7 +30,7 @@ in pkgs.mkShell {
     cargo
     espeak
     python39WithPackages
-    python312WithPackages
+    python313WithPackages
     texliveWithPackages
     libiconv
   ];
@@ -34,14 +38,14 @@ in pkgs.mkShell {
   shellHook = ''
     alias python3.8=${python39WithPackages}/bin/python
     alias pip3.8=${python39WithPackages}/bin/pip
-    alias python3.12=${python312WithPackages}/bin/python
-    alias pip3.12=${python312WithPackages}/bin/pip
+    alias python3.12=${python313WithPackages}/bin/python
+    alias pip3.12=${python313WithPackages}/bin/pip
     alias wikiextractor=${python39WithPackages}/bin/wikiextractor
 
-    # Set Python 3.12 as default
-    alias python=${python312WithPackages}/bin/python
-    alias pip=${python312WithPackages}/bin/pip
+    # Set Python 3.13 as default
+    alias python=${python313WithPackages}/bin/python
+    alias pip=${python313WithPackages}/bin/pip
     
-    export PATH="${python312WithPackages}/bin:${python39WithPackages}/bin:$PATH"
+    export PATH="${python313WithPackages}/bin:${python39WithPackages}/bin:$PATH"
   '';
 }
