@@ -13,7 +13,6 @@ def process_files(directory, lowercase=True):
             content = re.sub(r'<[^>]+>', '', content)  # Remove XML tags and attributes
             if lowercase:
                 content = content.lower()
-            # This line remains the same, but will now work with the regex module
             words = re.findall(r'\b[\p{L}\p{M}]+(?:-[\p{L}\p{M}]+)*\b', content, re.UNICODE)
             word_counter.update(words)
             return len(words)
@@ -33,7 +32,7 @@ def generate_frqwl(word_counter, output_file, filter_numeric=True):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python script.py <input_directory> <output_file>")
+        print("Usage: python wiki2frqwl.py <input_directory> <output_file>")
         sys.exit(1)
     
     input_directory = sys.argv[1]
