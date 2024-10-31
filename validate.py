@@ -17,7 +17,7 @@ def clean_pattern_dot_tex(tex_file: str) -> str:
         patterns = []
         for line in lines:
             line = line.strip()
-            if line.startswith('%') or line.startswith('}'):
+            if line.startswith('%') or line.startswith('}') or line.startswith("\\hyphenation{"):
                 continue
             if '-' in line:
                 continue
@@ -30,8 +30,8 @@ def clean_pattern_dot_tex(tex_file: str) -> str:
 
 # expects both wlh and pat to be in UTF-8
 def validate_using_patgen(wlh, pat, lang) -> Tuple[int, int, int]:
-    if lang != 'uk':
-        print('must be ukr')
+    if lang != 'uk' and lang != 'pl':
+        print('lang must be uk or pl')
         exit(1)
     # Convert relative filenames to absolute paths
     current_dir = os.getcwd()
