@@ -241,7 +241,6 @@ from evaluate_data_mix import sample
 
 RANDOM_SAMPLE_LEN = 5
 EXPLORATION_ROUNDS = 20
-EXPLOITATION_ROUNDS = 5
 
 sampler = PatgenSampler()
 LANGUAGE = "pl"
@@ -256,7 +255,7 @@ elif LANGUAGE == "uk":
 else:
     raise ValueError(f"language {LANGUAGE} unsupported for optimization")
 
-sampler.load_state("work/model.pkl")
+sampler.load_state(f"work/model{LANGUAGE}.pkl")
 
 if RANDOM_SAMPLE:
     print(f"Randomly sampling {RANDOM_SAMPLE_LEN} parameter sets")
@@ -299,7 +298,7 @@ if EXPLOITATION:
     print("!"*70)
     print("="*70)
     print("\nFinal exploitation phase - best predicted configurations:")
-    best_candidates = sampler.exploit_best_candidates(n_suggestions=EXPLOITATION_ROUNDS)
+    best_candidates = sampler.exploit_best_candidates(n_suggestions=5)
     for params, pred_score, _ in best_candidates:
         weights, params_ipa, params_single = params
         print("\nPredicted score:", f"{pred_score:.3f}")
