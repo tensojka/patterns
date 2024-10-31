@@ -239,40 +239,34 @@ def print_param_set(weights: Tuple[int, ...], params_ipa: Tuple[int, ...],
 
 from evaluate_data_mix import sample
 
-# List of input files
-input_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
+RANDOM_SAMPLE_LEN = 5
+EXPLORATION_ROUNDS = 20
+EXPLOITATION_ROUNDS = 5
 
-# Initialize sampler
 sampler = PatgenSampler()
+LANGUAGE = "pl"
+RANDOM_SAMPLE = True
+EXPLORATION = True
+EXPLOITATION = True
+
+if LANGUAGE == "pl":
+    input_files = ["work/cs.ipa.wlh", "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/ru.ipa.wlh"]
+elif LANGUAGE == "uk":
+    input_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
+else:
+    raise ValueError(f"language {LANGUAGE} unsupported for optimization")
 
 sampler.load_state("work/model.pkl")
-print("Randomly sampling 30 parameter sets")
-initial_sets = sampler.suggest_batch(n_suggestions=30)
-for params, pred_score, uncertainty in initial_sets:
-    weights, params_ipa, params_single = params
-    print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
 
-    # Run evaluation
-    good, bad, missed = sample(input_files, weights, params_ipa, params_single, "uk")
-    actual_score = sampler.calculate_score(good, bad, missed)
-    print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
-    print(f"Actual score: {actual_score:.3f}")
-    
-    # Update model
-    sampler.update(weights, params_ipa, params_single, actual_score)
-
-# Get more suggestions informed by previous scores
-for round in range(20):
-    print("="*70)
-    print(f"Round {round}")
-    print("\nNext batch of suggestions based on results:")
-    next_sets = sampler.suggest_batch(n_suggestions=4)
-    for params, pred_score, uncertainty in next_sets:
+if RANDOM_SAMPLE:
+    print(f"Randomly sampling {RANDOM_SAMPLE_LEN} parameter sets")
+    initial_sets = sampler.suggest_batch(n_suggestions=RANDOM_SAMPLE_LEN)
+    for params, pred_score, uncertainty in initial_sets:
         weights, params_ipa, params_single = params
         print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
-        
+
         # Run evaluation
-        good, bad, missed = sample(input_files, weights, params_ipa, params_single, "uk")
+        good, bad, missed = sample(input_files, weights, params_ipa, params_single, LANGUAGE)
         actual_score = sampler.calculate_score(good, bad, missed)
         print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
         print(f"Actual score: {actual_score:.3f}")
@@ -280,22 +274,45 @@ for round in range(20):
         # Update model
         sampler.update(weights, params_ipa, params_single, actual_score)
 
-sampler.save_state("work/model.pkl")
+if EXPLORATION:
+    # Get more suggestions informed by previous scores
+    for round in range(EXPLORATION_ROUNDS):
+        print("="*70)
+        print(f"Round {round}")
+        print("\nNext batch of suggestions based on results:")
+        next_sets = sampler.suggest_batch(n_suggestions=4)
+        for params, pred_score, uncertainty in next_sets:
+            weights, params_ipa, params_single = params
+            print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
+            
+            # Run evaluation
+            good, bad, missed = sample(input_files, weights, params_ipa, params_single, LANGUAGE)
+            actual_score = sampler.calculate_score(good, bad, missed)
+            print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
+            print(f"Actual score: {actual_score:.3f}")
+            
+            # Update model
+            sampler.update(weights, params_ipa, params_single, actual_score)
+
+if EXPLOITATION:
+    print("="*70)
+    print("!"*70)
+    print("="*70)
+    print("\nFinal exploitation phase - best predicted configurations:")
+    best_candidates = sampler.exploit_best_candidates(n_suggestions=EXPLOITATION_ROUNDS)
+    for params, pred_score, _ in best_candidates:
+        weights, params_ipa, params_single = params
+        print("\nPredicted score:", f"{pred_score:.3f}")
+        print("Weights:       ", " ".join(map(str, weights)))
+        print("IPA Params:    ", " ".join(map(str, params_ipa)))
+        print("Single Params: ", " ".join(map(str, params_single)))
+        
+        # Evaluate
+        good, bad, missed = sample(input_files, weights, params_ipa, params_single, LANGUAGE)
+        actual_score = sampler.calculate_score(good, bad, missed)
+        print(f"Actual score: {actual_score:.3f}")
+        print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
+        sampler.update(weights, params_ipa, params_single, actual_score)
+
 export_optimization_data(sampler)
-print("="*70)
-print("!"*70)
-print("="*70)
-print("\nFinal exploitation phase - best predicted configurations:")
-best_candidates = sampler.exploit_best_candidates(n_suggestions=5)
-for params, pred_score, _ in best_candidates:
-    weights, params_ipa, params_single = params
-    print("\nPredicted score:", f"{pred_score:.3f}")
-    print("Weights:       ", " ".join(map(str, weights)))
-    print("IPA Params:    ", " ".join(map(str, params_ipa)))
-    print("Single Params: ", " ".join(map(str, params_single)))
-    
-    # Evaluate
-    good, bad, missed = sample(input_files, weights, params_ipa, params_single, "uk")
-    actual_score = sampler.calculate_score(good, bad, missed)
-    print(f"Actual score: {actual_score:.3f}")
-    print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
+sampler.save_state("work/model.pkl")
