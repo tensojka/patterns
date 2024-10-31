@@ -314,4 +314,4 @@ if EXPLOITATION:
         sampler.update(weights, params_ipa, params_single, actual_score)
 
 export_optimization_data(sampler)
-sampler.save_state("work/model.pkl")
+sampler.save_state(f"work/model{LANGUAGE}.pkl")
