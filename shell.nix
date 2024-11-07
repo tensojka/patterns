@@ -46,6 +46,6 @@ in pkgs.mkShell {
     alias python=${python312WithPackages}/bin/python
     alias pip=${python312WithPackages}/bin/pip
     
-    export PATH="${python312WithPackages}/bin:${python39WithPackages}/bin:$PATH"
+    export PATH="${python312WithPackages}/bin:${python38WithPackages}/bin:$PATH"
   '';
 }
