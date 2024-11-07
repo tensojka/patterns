@@ -1,4 +1,6 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import (fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/23.05.tar.gz";
+  }) {} }:
 # Note: wikiextractor requires Python 3.9
 
 let
