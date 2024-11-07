@@ -23,6 +23,7 @@ work/%wikidir: work/%wiki-latest-pages-articles.xml
 	bzip2 -d $<
 
 work/%wiki-latest-pages-articles.xml.bz2:
+	mkdir -p work
 	wget https://dumps.wikimedia.org/$*wiki/latest/$*wiki-latest-pages-articles.xml.bz2 -O $@
 
 # sh patterns are named differently (sh-latn) and Serbocroat wikipedia uses Latin script.
