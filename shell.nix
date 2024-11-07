@@ -24,7 +24,9 @@ let
     scikit-learn
   ]);
 
-  texliveWithPackages = pkgs.texlive.withPackages (ps: [ ps.patgen ]);
+  texliveCombined = pkgs.texlive.combine {
+    inherit (pkgs.texlive) scheme-basic patgen;
+  };
 
 in pkgs.mkShell {
   buildInputs = with pkgs; [
@@ -33,7 +35,7 @@ in pkgs.mkShell {
     espeak
     python38WithPackages
     python312WithPackages
-    texliveWithPackages
+    texliveCombined
     libiconv
   ];
 
