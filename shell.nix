@@ -1,11 +1,12 @@
 { pkgs ? import (fetchTarball {
     url = "https://github.com/NixOS/nixpkgs/archive/23.05.tar.gz";
+    sha256 = "f2b96094f6dfbb53b082fe8709da94137475fcfead16c960f2395c98fc014b68";
   }) {} }:
-# Note: wikiextractor requires Python 3.9
+# Note: wikiextractor requires Python 3.8
 
 let
   python38 = pkgs.python38;
-  python312 = pkgs.python312;
+  python311 = pkgs.python311;
 
   wikiextractor = python38.pkgs.buildPythonPackage rec {
     pname = "wikiextractor";
@@ -18,7 +19,7 @@ let
   };
 
   python38WithPackages = python38.withPackages (ps: [ wikiextractor ]);
-  python312WithPackages = python312.withPackages (ps: with ps; [
+  python311WithPackages = python311.withPackages (ps: with ps; [
     regex 
     numpy
     scikit-learn
@@ -34,22 +35,25 @@ in pkgs.mkShell {
     cargo
     espeak
     python38WithPackages
-    python312WithPackages
+    python311WithPackages
     texliveCombined
     libiconv
+    gnumake
+    wget
+    bzip2
   ];
 
   shellHook = ''
     alias python3.8=${python38WithPackages}/bin/python
     alias pip3.8=${python38WithPackages}/bin/pip
-    alias python3.12=${python312WithPackages}/bin/python
-    alias pip3.12=${python312WithPackages}/bin/pip
+    alias python3.12=${python311WithPackages}/bin/python
+    alias pip3.12=${python311WithPackages}/bin/pip
     alias wikiextractor=${python38WithPackages}/bin/wikiextractor
 
-    # Set Python 3.12 as default
-    alias python=${python312WithPackages}/bin/python
-    alias pip=${python312WithPackages}/bin/pip
+    # Set Python 3.11 as default
+    alias python=${python311WithPackages}/bin/python
+    alias pip=${python311WithPackages}/bin/pip
     
-    export PATH="${python312WithPackages}/bin:${python38WithPackages}/bin:$PATH"
+    export PATH="${python311WithPackages}/bin:${python38WithPackages}/bin:$PATH"
   '';
 }
