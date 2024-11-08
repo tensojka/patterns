@@ -153,7 +153,7 @@ class PatgenSampler:
         score = good_ratio - bad_penalty
         return max(0.0, min(1.0, (score + 1) / 2))
     
-    def suggest_batch(self, n_suggestions: int = 5, n_candidates: int = 5000) -> List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]:
+    def suggest_batch(self, n_suggestions: int = 5, n_candidates: int = 1000) -> List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]:
         """Suggest a batch of diverse, promising parameter sets with predictions"""
         if len(self.X) < 5:
             suggestions = [self._random_params() for _ in range(n_suggestions)]
@@ -205,7 +205,7 @@ class PatgenSampler:
         # Add predictions for selected candidates
         return [(params, *self._predict(*params)) for params in selected]
         
-    def exploit_best_candidates(self, n_suggestions=10, n_candidates=10000):
+    def exploit_best_candidates(self, n_suggestions=10, n_candidates=20000):
         """Generate many candidates and return the ones with highest predicted scores, no exploration"""
         if len(self.X) < 5:
             return self.suggest_batch(n_suggestions)
@@ -246,8 +246,8 @@ EXPLORATION_ROUNDS = 20 # 5 samples in each
 sampler = PatgenSampler()
 LANGUAGE = "uk"
 RANDOM_SAMPLE = True
-EXPLORATION = False
-EXPLOITATION = False
+EXPLORATION = True
+EXPLOITATION = True
 
 if LANGUAGE == "pl":
     input_files = ["work/cs.ipa.wlh", "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/ru.ipa.wlh"]
