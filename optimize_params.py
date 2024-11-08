@@ -27,7 +27,7 @@ def export_optimization_data(sampler):
             "weights": list(weights),
             "params_ipa": list(params_ipa),
             "params_single": list(params_single),
-            "predicted_score": float(pred[0]),
+            "predicted_score": float(pred.item()),
             "uncertainty": float(std[0]),
             "actual_score": float(sampler.y[i])
         }
@@ -79,6 +79,7 @@ class PatgenSampler:
                 sampler.gp = state['gp']
                 sampler.X = state['X']
                 sampler.y = state['y']
+            print(f"Loaded {len(sampler.X)} observations from {filename}")
         return sampler
 
     def _encode_params(self, weights: Tuple[int, ...], params_ipa: Tuple[int, ...], 
@@ -214,12 +215,12 @@ class PatgenSampler:
         X_candidates = np.array([self._encode_params(*c) for c in candidates])
         
         # Get just predictions, no uncertainty consideration
-        mean = self.gp.predict(X_candidates)
+        mean = self.gp.predict(X_candidates).flatten()  # Flatten the 2D array to 1D
         
         # Get top predicted performers
         top_indices = np.argsort(mean)[-n_suggestions:][::-1]
         
-        return [(candidates[i], mean[i], 0.0) for i in top_indices]
+        return [(candidates[i], float(mean[i]), 0.0) for i in top_indices]  # Convert to float for safety
 
 def print_param_set(weights: Tuple[int, ...], params_ipa: Tuple[int, ...], 
                    params_single: Tuple[int, ...], predicted_score: float = None,
@@ -239,14 +240,14 @@ def print_param_set(weights: Tuple[int, ...], params_ipa: Tuple[int, ...],
 
 from evaluate_data_mix import sample
 
-RANDOM_SAMPLE_LEN = 5
-EXPLORATION_ROUNDS = 20
+RANDOM_SAMPLE_LEN = 10
+EXPLORATION_ROUNDS = 20 # 5 samples in each
 
 sampler = PatgenSampler()
-LANGUAGE = "pl"
+LANGUAGE = "uk"
 RANDOM_SAMPLE = True
-EXPLORATION = True
-EXPLOITATION = True
+EXPLORATION = False
+EXPLOITATION = False
 
 if LANGUAGE == "pl":
     input_files = ["work/cs.ipa.wlh", "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/ru.ipa.wlh"]
@@ -255,7 +256,7 @@ elif LANGUAGE == "uk":
 else:
     raise ValueError(f"language {LANGUAGE} unsupported for optimization")
 
-sampler.load_state(f"work/model{LANGUAGE}.pkl")
+sampler = PatgenSampler.load_state(f"work/model{LANGUAGE}.pkl")
 
 if RANDOM_SAMPLE:
     print(f"Randomly sampling {RANDOM_SAMPLE_LEN} parameter sets")
@@ -279,7 +280,7 @@ if EXPLORATION:
         print("="*70)
         print(f"Round {round}")
         print("\nNext batch of suggestions based on results:")
-        next_sets = sampler.suggest_batch(n_suggestions=4)
+        next_sets = sampler.suggest_batch(n_suggestions=5)
         for params, pred_score, uncertainty in next_sets:
             weights, params_ipa, params_single = params
             print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
