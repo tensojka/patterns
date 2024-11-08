@@ -60,7 +60,7 @@ def export_optimization_data(sampler):
 class PatgenSampler:
     def __init__(self):
         self.gp = GaussianProcessRegressor(
-            kernel=Matern(nu=2.5),
+            kernel=Matern(nu=2.5, length_scale=[1.0] * 12, length_scale_bounds=(1e-5, 1e10)),
             normalize_y=True,
             random_state=42
         )
@@ -121,9 +121,9 @@ class PatgenSampler:
 
     def _random_params(self) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]:
         """Generate random parameter sets"""
-        weights = tuple(np.random.choice([0, 1, 3, 5, 7], size=4))
-        params_ipa = tuple(np.random.randint(1, 7, size=4))
-        params_single = tuple(np.random.randint(1, 7, size=4))
+        weights = tuple(np.random.randint(1, 9, size=4))
+        params_ipa = tuple(np.random.randint(1, 9, size=4))
+        params_single = tuple(np.random.randint(1, 9, size=4))
         return weights, params_ipa, params_single
 
     def _param_distance(self, params1: Tuple[Tuple[int, ...], ...], 
@@ -161,7 +161,7 @@ class PatgenSampler:
         score = good_ratio - bad_penalty
         return max(0.0, min(1.0, (score + 1) / 2))
     
-    def suggest_batch(self, n_suggestions: int = 5, n_candidates: int = 1000) -> List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]:
+    def suggest_batch(self, n_suggestions: int = 5, n_candidates: int = 5000) -> List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]:
         """Suggest a batch of diverse, promising parameter sets with predictions"""
         if len(self.X) < 5:
             suggestions = [self._random_params() for _ in range(n_suggestions)]
@@ -173,7 +173,7 @@ class PatgenSampler:
         
         # Get predictions and uncertainties
         mean, std = self.gp.predict(X_candidates, return_std=True)
-        scores = mean + 3.0 * std
+        scores = mean + 5.0 * std
         
         # Select diverse set from top quartile
         top_quartile = np.percentile(scores, 75)
@@ -253,8 +253,8 @@ def main():
     EXPLORATION_ROUNDS = 10 # 10 samples in each
 
     sampler = PatgenSampler()
-    LANGUAGE = "uk"
-    RANDOM_SAMPLE = False
+    LANGUAGE = "pl"
+    RANDOM_SAMPLE = True
     EXPLORATION = True
     EXPLOITATION = True
 
@@ -290,7 +290,7 @@ def main():
                 print("="*70)
                 print(f"Round {round}")
                 print("\nNext batch of suggestions based on results:")
-                next_sets = sampler.suggest_batch(n_suggestions=10)
+                next_sets = sampler.suggest_batch(n_suggestions=5)
                 
                 # Prepare args for parallel execution
                 eval_args = [
@@ -331,6 +331,10 @@ def main():
             print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
             sampler.update(weights, params_ipa, params_single, actual_score)
 
+
+    length_scales = sampler.gp.kernel_.length_scale
+    print("Length scales:")
+    print(length_scales)
     export_optimization_data(sampler)
     sampler.save_state(f"work/model{LANGUAGE}.pkl")
 
