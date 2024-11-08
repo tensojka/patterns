@@ -165,7 +165,7 @@ class PatgenSampler:
         
         # Get predictions and uncertainties
         mean, std = self.gp.predict(X_candidates, return_std=True)
-        scores = mean + std
+        scores = mean + 3.0 * std
         
         # Select diverse set from top quartile
         top_quartile = np.percentile(scores, 75)
