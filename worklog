@@ -323,5 +323,55 @@ ad-sʌr-bu-va-ti-sja
 
 
 přidal jsem do ipa_to_ascii korekci pro znaky, které se vypadjí skoro stejně v cyrilici a latince.
-
+uk->uk
 (31788, 5768, 7892)
+
+uk orig:
+(34420, 5145, 5260)
+
+bezi gridsearch.
+
+pro ["work/sk.ipa.wlh", "work/ru.ipa.wlh"], (3,1), "csskhyphen.par", "csskhyphen.par“ (coz byl v predchozim gridsearchi nejlepsi mix)
+ jsou vysledky tyto:
+
+(29791, 3685, 9889)
+
+---
+26.10.
+
+Vysledky behu na aure 
+
+Final exploitation phase - best predicted configurations:
+
+Predicted score: 0.588
+Weights:        5 5 0 3
+IPA Params:     6 1 4 5
+Single Params:  4 5 6 5
+
+Processing complete:
+Total words processed: 170243
+ <_io.TextIOWrapper name='<stderr>' mode='w' encoding='utf-8'>
+Actual score: 0.565
+Evaluation: good=26081, bad=3350, missed=13599
+
+Predicted score: 0.586
+Weights:        5 0 0 1
+IPA Params:     6 1 6 1
+Single Params:  2 6 6 4
+
+Processing complete:
+Total words processed: 156452
+ <_io.TextIOWrapper name='<stderr>' mode='w' encoding='utf-8'>
+Actual score: 0.462
+Evaluation: good=18588, bad=3535, missed=21092
+
+Predicted score: 0.582
+Weights:        3 5 0 7
+IPA Params:     3 6 4 2
+Single Params:  6 2 6 1
+
+Processing complete:
+Total words processed: 171060
+ <_io.TextIOWrapper name='<stderr>' mode='w' encoding='utf-8'>
+Actual score: 0.584
+Evaluation: good=25270, bad=3022, missed=14410
