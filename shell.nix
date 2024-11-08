@@ -1,6 +1,5 @@
 { pkgs ? import (fetchTarball {
     url = "https://github.com/NixOS/nixpkgs/archive/23.05.tar.gz";
-    sha256 = "f2b96094f6dfbb53b082fe8709da94137475fcfead16c960f2395c98fc014b68";
   }) {} }:
 # Note: wikiextractor requires Python 3.8
 
