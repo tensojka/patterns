@@ -2,7 +2,7 @@ import subprocess
 import os
 from shutil import copy
 from itertools import product
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Optional
 from validate import validate_using_patgen
 
 TEMP_WORKDIR = '/var/tmp/ipa-patterns/'
@@ -116,39 +116,45 @@ def generate_weights_to_evaluate():
 def create_temp_param_file(params_tuple: Tuple[int, ...], base_param_file: str) -> str:
     """Creates a temporary parameter file based on the input tuple and returns its path"""
     temp_param_path = os.path.join(TEMP_WORKDIR, f"temp_params_{hash(params_tuple)}.par")
-    
+
     # Copy the base parameter file content
     with open(os.path.join('parameters', base_param_file)) as f:
         param_content = f.readlines()
-    
+
     # Replace good_bad_thres lines with new values
     param_content = [line for line in param_content if not line.startswith('good_bad_thres')]
     for i, bad_value in enumerate(params_tuple, 1):
         param_content.append(f"good_bad_thres[{i}]='1 {bad_value} 5'\n")
-    
+
     with open(temp_param_path, 'w') as f:
         f.writelines(param_content)
-    
+
     return temp_param_path
 
 
 from generate_joint_patterns import generate_joint_patterns
 
-def sample(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: Union[str, Tuple[int, ...]], params_single: Union[str, Tuple[int, ...]], language: str) -> Tuple[int, int, int]:
+def sample(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: Union[str, Tuple[int, ...]], params_single: Union[str, Tuple[int, ...]], language: str, workdir_i: Optional[int] = None) -> Tuple[int, int, int]:
+    global TEMP_WORKDIR
+    original_workdir = TEMP_WORKDIR
+    TEMP_WORKDIR = TEMP_WORKDIR + language + str(workdir_i) + "/"
+    os.makedirs(TEMP_WORKDIR, exist_ok=True)
     output_file = "work/all.pat"
 
         # Handle tuple parameters by creating temporary parameter files
-    actual_params_ipa = (create_temp_param_file(params_ipa, 'csskhyphen.par') 
+    actual_params_ipa = (create_temp_param_file(params_ipa, 'csskhyphen.par')
                         if isinstance(params_ipa, tuple) else params_ipa)
-    actual_params_single = (create_temp_param_file(params_single, 'csskhyphen.par') 
+    actual_params_single = (create_temp_param_file(params_single, 'csskhyphen.par')
                           if isinstance(params_single, tuple) else params_single)
 
     #print(f"Evaluating weights: {weights}")
-    generate_joint_patterns(ipa_files, list(weights), output_file, actual_params_ipa)
+    generate_joint_patterns(ipa_files, list(weights), output_file, actual_params_ipa, TEMP_WORKDIR)
 
     #print(f"Joint IPA patterns saved to: {output_file}")
 
-    return evaluate_patterns(output_file, get_groundtruth_for(language), f'work/{language}.ipa.wls', language, actual_params_single)
+    res = evaluate_patterns(output_file, get_groundtruth_for(language), f'work/{language}.ipa.wls', language, actual_params_single)
+    TEMP_WORKDIR = original_workdir
+    return res
 
 def run_with_params(params_ipa, params_single):
     ipa_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]

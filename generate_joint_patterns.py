@@ -118,7 +118,9 @@ def merge_ipa_files(ipa_filenames, weights: List[int], output_filename: str):
             except Exception as e:
                 print(f"An error occurred while processing {ipa_filename}: {e}")
 
-def generate_joint_patterns(ipa_filenames, weights, output_filename, params_filename):
+def generate_joint_patterns(ipa_filenames, weights, output_filename, params_filename, WORKDIR):
+    global TEMP_WORKDIR_PREFIX
+    TEMP_WORKDIR_PREFIX = WORKDIR
     # Merge the .ipa.wlh files into a single .ipa.wlh file
     joint_ipa_file = TEMP_WORKDIR_PREFIX + 'joint.ipa.wlh'
     translate_filename = TEMP_WORKDIR_PREFIX + 'joint.tra'

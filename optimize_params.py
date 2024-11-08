@@ -5,6 +5,14 @@ import numpy as np
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern
 
+from multiprocessing import Pool
+
+def evaluate_params(args):
+    """Helper function for parallel evaluation"""
+    input_files, weights, params_ipa, params_single, language, workdir_i = args
+    good, bad, missed = sample(input_files, weights, params_ipa, params_single, language, workdir_i)
+    return good, bad, missed
+
 def export_optimization_data(sampler):
     """Export optimization data to JSON format"""
     import json
@@ -240,51 +248,32 @@ def print_param_set(weights: Tuple[int, ...], params_ipa: Tuple[int, ...],
 
 from evaluate_data_mix import sample
 
-RANDOM_SAMPLE_LEN = 10
-EXPLORATION_ROUNDS = 20 # 5 samples in each
+def main():
+    RANDOM_SAMPLE_LEN = 10
+    EXPLORATION_ROUNDS = 10 # 10 samples in each
 
-sampler = PatgenSampler()
-LANGUAGE = "uk"
-RANDOM_SAMPLE = True
-EXPLORATION = True
-EXPLOITATION = True
+    sampler = PatgenSampler()
+    LANGUAGE = "uk"
+    RANDOM_SAMPLE = False
+    EXPLORATION = True
+    EXPLOITATION = True
 
-if LANGUAGE == "pl":
-    input_files = ["work/cs.ipa.wlh", "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/ru.ipa.wlh"]
-elif LANGUAGE == "uk":
-    input_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
-else:
-    raise ValueError(f"language {LANGUAGE} unsupported for optimization")
+    if LANGUAGE == "pl":
+        input_files = ["work/cs.ipa.wlh", "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/ru.ipa.wlh"]
+    elif LANGUAGE == "uk":
+        input_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
+    else:
+        raise ValueError(f"language {LANGUAGE} unsupported for optimization")
 
-sampler = PatgenSampler.load_state(f"work/model{LANGUAGE}.pkl")
+    sampler = PatgenSampler.load_state(f"work/model{LANGUAGE}.pkl")
 
-if RANDOM_SAMPLE:
-    print(f"Randomly sampling {RANDOM_SAMPLE_LEN} parameter sets")
-    initial_sets = sampler.suggest_batch(n_suggestions=RANDOM_SAMPLE_LEN)
-    for params, pred_score, uncertainty in initial_sets:
-        weights, params_ipa, params_single = params
-        print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
-
-        # Run evaluation
-        good, bad, missed = sample(input_files, weights, params_ipa, params_single, LANGUAGE)
-        actual_score = sampler.calculate_score(good, bad, missed)
-        print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
-        print(f"Actual score: {actual_score:.3f}")
-        
-        # Update model
-        sampler.update(weights, params_ipa, params_single, actual_score)
-
-if EXPLORATION:
-    # Get more suggestions informed by previous scores
-    for round in range(EXPLORATION_ROUNDS):
-        print("="*70)
-        print(f"Round {round}")
-        print("\nNext batch of suggestions based on results:")
-        next_sets = sampler.suggest_batch(n_suggestions=5)
-        for params, pred_score, uncertainty in next_sets:
+    if RANDOM_SAMPLE:
+        print(f"Randomly sampling {RANDOM_SAMPLE_LEN} parameter sets")
+        initial_sets = sampler.suggest_batch(n_suggestions=RANDOM_SAMPLE_LEN)
+        for params, pred_score, uncertainty in initial_sets:
             weights, params_ipa, params_single = params
             print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
-            
+
             # Run evaluation
             good, bad, missed = sample(input_files, weights, params_ipa, params_single, LANGUAGE)
             actual_score = sampler.calculate_score(good, bad, missed)
@@ -294,25 +283,56 @@ if EXPLORATION:
             # Update model
             sampler.update(weights, params_ipa, params_single, actual_score)
 
-if EXPLOITATION:
-    print("="*70)
-    print("!"*70)
-    print("="*70)
-    print("\nFinal exploitation phase - best predicted configurations:")
-    best_candidates = sampler.exploit_best_candidates(n_suggestions=5)
-    for params, pred_score, _ in best_candidates:
-        weights, params_ipa, params_single = params
-        print("\nPredicted score:", f"{pred_score:.3f}")
-        print("Weights:       ", " ".join(map(str, weights)))
-        print("IPA Params:    ", " ".join(map(str, params_ipa)))
-        print("Single Params: ", " ".join(map(str, params_single)))
-        
-        # Evaluate
-        good, bad, missed = sample(input_files, weights, params_ipa, params_single, LANGUAGE)
-        actual_score = sampler.calculate_score(good, bad, missed)
-        print(f"Actual score: {actual_score:.3f}")
-        print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
-        sampler.update(weights, params_ipa, params_single, actual_score)
+    if EXPLORATION:
+        # Get more suggestions informed by previous scores
+        with Pool() as pool:
+            for round in range(EXPLORATION_ROUNDS):
+                print("="*70)
+                print(f"Round {round}")
+                print("\nNext batch of suggestions based on results:")
+                next_sets = sampler.suggest_batch(n_suggestions=10)
+                
+                # Prepare args for parallel execution
+                eval_args = [
+                    (input_files, *params, LANGUAGE, i) 
+                    for i, (params, _, _) in enumerate(next_sets)
+                ]
+                
+                # Run evaluations in parallel
+                results = pool.map(evaluate_params, eval_args)
+                
+                # Process results and update model
+                for (params, pred_score, uncertainty), (good, bad, missed) in zip(next_sets, results):
+                    weights, params_ipa, params_single = params
+                    print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
+                    actual_score = sampler.calculate_score(good, bad, missed)
+                    print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
+                    print(f"Actual score: {actual_score:.3f}")
+                    sampler.update(weights, params_ipa, params_single, actual_score)
 
-export_optimization_data(sampler)
-sampler.save_state(f"work/model{LANGUAGE}.pkl")
+
+    if EXPLOITATION:
+        print("="*70)
+        print("!"*70)
+        print("="*70)
+        print("\nFinal exploitation phase - best predicted configurations:")
+        best_candidates = sampler.exploit_best_candidates(n_suggestions=5)
+        for params, pred_score, _ in best_candidates:
+            weights, params_ipa, params_single = params
+            print("\nPredicted score:", f"{pred_score:.3f}")
+            print("Weights:       ", " ".join(map(str, weights)))
+            print("IPA Params:    ", " ".join(map(str, params_ipa)))
+            print("Single Params: ", " ".join(map(str, params_single)))
+            
+            # Evaluate
+            good, bad, missed = sample(input_files, weights, params_ipa, params_single, LANGUAGE)
+            actual_score = sampler.calculate_score(good, bad, missed)
+            print(f"Actual score: {actual_score:.3f}")
+            print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
+            sampler.update(weights, params_ipa, params_single, actual_score)
+
+    export_optimization_data(sampler)
+    sampler.save_state(f"work/model{LANGUAGE}.pkl")
+
+if __name__ == '__main__':
+    main()
