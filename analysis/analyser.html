@@ -48,6 +48,7 @@
 <button onclick="analyzeJson()">Analyze</button>
 
 <h2>Results</h2>
+<div id="runinfo"></div>
 <div id="resultSection"></div>
 
 <script>
@@ -58,6 +59,11 @@
     try {
       let data = JSON.parse(jsonInput);
       let ipaFiles = data.run_params.ipa_files;
+
+      // Display run parameters
+      let runInfoHtml = `<p>IPA Parameters: ${data.run_params.params_ipa}</p>`;
+      runInfoHtml += `<p>Single Parameters: ${data.run_params.params_single}</p>`;
+      document.getElementById('runinfo').innerHTML = runInfoHtml;
 
       // Find best results first
       let bestGood = -1;
