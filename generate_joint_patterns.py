@@ -88,10 +88,13 @@ def train_joint_patterns(joint_ipa_file, translate_file, params_file, output_fil
         return_code = process.wait()
         
         pattern_final = os.path.join(output_dir, 'pattern.final')
+        pattmp_final = os.path.join(output_dir, 'pattmp.4')
+        pattmp_final_copy = os.path.join(output_dir, 'pattmp.ipa.4')
         if os.path.exists(pattern_final):
             # Copy the pattern.final file to the specified output file
             shutil.copy2(pattern_final, output_file)
-            #print(f"Pattern file generated and copied to: {output_file}")
+            # Copy the pattmp.4 into pattmp.ipa.4 so it doesn't get overwritten later
+            shutil.copy2(pattmp_final, pattmp_final_copy)
         else:
             print("Error: pattern.final was not generated", file=sys.stderr)
         
