@@ -9,8 +9,8 @@ from multiprocessing import Pool
 
 def evaluate_params(args):
     """Helper function for parallel evaluation"""
-    input_files, weights, params_ipa, params_single, language, workdir_i = args
-    good, bad, missed = sample(input_files, weights, params_ipa, params_single, language, workdir_i)
+    input_files, weights, params_ipa, params_single, threshold, language, workdir_i = args
+    good, bad, missed = sample(input_files, weights, params_ipa, params_single, threshold, language, workdir_i)
     return good, bad, missed
 
 def export_optimization_data(sampler):
@@ -60,7 +60,7 @@ def export_optimization_data(sampler):
 class PatgenSampler:
     def __init__(self):
         self.gp = GaussianProcessRegressor(
-            kernel=Matern(nu=2.5, length_scale=[1.0] * 12, length_scale_bounds=(1e-5, 1e10)),
+            kernel=Matern(nu=2.5, length_scale=[1.0] * 13, length_scale_bounds=(1e-5, 1e10)),
             normalize_y=True,
             random_state=42
         )
@@ -91,26 +91,26 @@ class PatgenSampler:
         return sampler
 
     def _encode_params(self, weights: Tuple[int, ...], params_ipa: Tuple[int, ...], 
-                      params_single: Tuple[int, ...]) -> List[float]:
+                      params_single: Tuple[int, ...], threshold: int) -> List[float]:
         """Convert parameters to feature vector"""
-        return list(weights) + list(params_ipa) + list(params_single)
+        return list(weights) + list(params_ipa) + list(params_single) + [threshold]
     
         
     def _predict(self, weights: Tuple[int, ...], params_ipa: Tuple[int, ...], 
-                params_single: Tuple[int, ...]) -> Tuple[float, float]:
+                params_single: Tuple[int, ...], threshold: int) -> Tuple[float, float]:
         """Get prediction and uncertainty for a parameter set"""
         if len(self.X) < 5:
             return 0.5, 1.0
             
-        x = self._encode_params(weights, params_ipa, params_single)
+        x = self._encode_params(weights, params_ipa, params_single, threshold)
         x_arr = np.array([x])
         pred, std = self.gp.predict(x_arr, return_std=True)
         return float(pred[0]), float(std[0])
 
     def update(self, weights: Tuple[int, ...], params_ipa: Tuple[int, ...], 
-               params_single: Tuple[int, ...], score: float):
+               params_single: Tuple[int, ...], threshold: int, score: float):
         """Update model with new observation"""
-        x = self._encode_params(weights, params_ipa, params_single)
+        x = self._encode_params(weights, params_ipa, params_single, threshold)
         self.X.append(x)
         self.y.append(score)
         
@@ -119,18 +119,19 @@ class PatgenSampler:
             y_array = np.array(self.y)
             self.gp.fit(X_array, y_array)
 
-    def _random_params(self) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]:
+    def _random_params(self) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...], int]:
         """Generate random parameter sets"""
         weights = tuple(np.random.randint(1, 9, size=4))
         params_ipa = tuple(np.random.randint(1, 9, size=4))
         params_single = tuple(np.random.randint(1, 9, size=4))
-        return weights, params_ipa, params_single
+        threshold = np.random.randint(1,9)
+        return weights, params_ipa, params_single, threshold
 
     def _param_distance(self, params1: Tuple[Tuple[int, ...], ...], 
                        params2: Tuple[Tuple[int, ...], ...]) -> float:
         """Calculate normalized distance between parameter sets"""
-        w1, i1, s1 = params1
-        w2, i2, s2 = params2
+        w1, i1, s1, t1 = params1
+        w2, i2, s2, t2 = params2
         
         # Weight differences (max diff is 7)
         w_dist = sum(abs(a - b) for a, b in zip(w1, w2)) / (7 * 4)
@@ -138,8 +139,10 @@ class PatgenSampler:
         # Parameter differences (max diff is 5)
         i_dist = sum(abs(a - b) for a, b in zip(i1, i2)) / (5 * 4)
         s_dist = sum(abs(a - b) for a, b in zip(s1, s2)) / (5 * 4)
+
+        t_dist = abs(t1 - t2) / 8
         
-        return (w_dist + i_dist + s_dist) / 3
+        return (w_dist + i_dist + s_dist + t_dist) / 3
 
     def calculate_score(self, good: int, bad: int, missed: int) -> float:
         """
@@ -231,13 +234,14 @@ class PatgenSampler:
         return [(candidates[i], float(mean[i]), 0.0) for i in top_indices]  # Convert to float for safety
 
 def print_param_set(weights: Tuple[int, ...], params_ipa: Tuple[int, ...], 
-                   params_single: Tuple[int, ...], predicted_score: float = None,
+                   params_single: Tuple[int, ...], threshold: int = 5, predicted_score: float = None,
                    uncertainty: float = None, actual_score: float = None):
     """Pretty print a parameter set with predictions"""
     print("\nWeights:        ", " ".join(map(str, weights)))
     print("IPA Params:     ", " ".join(map(str, params_ipa)))
     print("Single Params:  ", " ".join(map(str, params_single)))
-    if predicted_score is not None:
+    print(f"Threshold:       {threshold}")
+    if predicted_score is not None and uncertainty is not None:
         print(f"Predicted score: {predicted_score:.3f} ± {uncertainty:.3f}")
     if actual_score is not None:
         print(f"Actual score:    {actual_score:.3f}")
@@ -271,17 +275,17 @@ def main():
         print(f"Randomly sampling {RANDOM_SAMPLE_LEN} parameter sets")
         initial_sets = sampler.suggest_batch(n_suggestions=RANDOM_SAMPLE_LEN)
         for params, pred_score, uncertainty in initial_sets:
-            weights, params_ipa, params_single = params
-            print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
+            weights, params_ipa, params_single, threshold = params
+            print_param_set(weights, params_ipa, params_single, threshold, pred_score, uncertainty)
 
             # Run evaluation
-            good, bad, missed = sample(input_files, weights, params_ipa, params_single, LANGUAGE)
+            good, bad, missed = sample(input_files, weights, params_ipa, params_single, threshold, LANGUAGE)
             actual_score = sampler.calculate_score(good, bad, missed)
             print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
             print(f"Actual score: {actual_score:.3f}")
             
             # Update model
-            sampler.update(weights, params_ipa, params_single, actual_score)
+            sampler.update(weights, params_ipa, params_single, threshold, actual_score)
 
     if EXPLORATION:
         # Get more suggestions informed by previous scores
@@ -294,8 +298,8 @@ def main():
                 
                 # Prepare args for parallel execution
                 eval_args = [
-                    (input_files, *params, LANGUAGE, i) 
-                    for i, (params, _, _) in enumerate(next_sets)
+                    (input_files, weights, params_ipa, params_single, threshold, LANGUAGE, i) 
+                    for i, ((weights, params_ipa, params_single, threshold), _, _) in enumerate(next_sets)
                 ]
                 
                 # Run evaluations in parallel
@@ -303,12 +307,12 @@ def main():
                 
                 # Process results and update model
                 for (params, pred_score, uncertainty), (good, bad, missed) in zip(next_sets, results):
-                    weights, params_ipa, params_single = params
-                    print_param_set(weights, params_ipa, params_single, pred_score, uncertainty)
+                    weights, params_ipa, params_single, threshold = params
+                    print_param_set(weights, params_ipa, params_single, threshold, pred_score, uncertainty)
                     actual_score = sampler.calculate_score(good, bad, missed)
                     print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
                     print(f"Actual score: {actual_score:.3f}")
-                    sampler.update(weights, params_ipa, params_single, actual_score)
+                    sampler.update(weights, params_ipa, params_single, threshold, actual_score)
 
 
     if EXPLOITATION:
@@ -318,18 +322,15 @@ def main():
         print("\nFinal exploitation phase - best predicted configurations:")
         best_candidates = sampler.exploit_best_candidates(n_suggestions=5)
         for params, pred_score, _ in best_candidates:
-            weights, params_ipa, params_single = params
-            print("\nPredicted score:", f"{pred_score:.3f}")
-            print("Weights:       ", " ".join(map(str, weights)))
-            print("IPA Params:    ", " ".join(map(str, params_ipa)))
-            print("Single Params: ", " ".join(map(str, params_single)))
+            weights, params_ipa, params_single, threshold = params
+            print_param_set(weights, params_ipa, params_single, threshold, pred_score)
             
             # Evaluate
-            good, bad, missed = sample(input_files, weights, params_ipa, params_single, LANGUAGE)
+            good, bad, missed = sample(input_files, weights, params_ipa, params_single, threshold, LANGUAGE)
             actual_score = sampler.calculate_score(good, bad, missed)
             print(f"Actual score: {actual_score:.3f}")
             print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
-            sampler.update(weights, params_ipa, params_single, actual_score)
+            sampler.update(weights, params_ipa, params_single, threshold, actual_score)
 
 
     length_scales = sampler.gp.kernel_.length_scale

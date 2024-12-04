@@ -113,7 +113,7 @@ def generate_weights_to_evaluate():
 
     return weights_to_evaluate
 
-def create_temp_param_file(params_tuple: Tuple[int, ...], base_param_file: str) -> str:
+def create_temp_param_file(params_tuple: Tuple[int, ...], base_param_file: str, threshold: int = 5) -> str:
     """Creates a temporary parameter file based on the input tuple and returns its path"""
     temp_param_path = os.path.join(TEMP_WORKDIR, f"temp_params_{hash(params_tuple)}.par")
 
@@ -134,7 +134,7 @@ def create_temp_param_file(params_tuple: Tuple[int, ...], base_param_file: str) 
 
 from generate_joint_patterns import generate_joint_patterns
 
-def sample(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: Union[str, Tuple[int, ...]], params_single: Union[str, Tuple[int, ...]], language: str, workdir_i: Optional[int] = None) -> Tuple[int, int, int]:
+def sample(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: Union[str, Tuple[int, ...]], params_single: Union[str, Tuple[int, ...]], threshold: int, language: str, workdir_i: Optional[int] = None) -> Tuple[int, int, int]:
     global TEMP_WORKDIR
     original_workdir = TEMP_WORKDIR
     TEMP_WORKDIR = TEMP_WORKDIR + language + str(workdir_i) + "/"
@@ -142,9 +142,9 @@ def sample(ipa_files: List[str], weights: Tuple[int, ...], params_ipa: Union[str
     output_file = "work/all.pat"
 
         # Handle tuple parameters by creating temporary parameter files
-    actual_params_ipa = (create_temp_param_file(params_ipa, 'csskhyphen.par')
+    actual_params_ipa = (create_temp_param_file(params_ipa, 'csskhyphen.par', threshold)
                         if isinstance(params_ipa, tuple) else params_ipa)
-    actual_params_single = (create_temp_param_file(params_single, 'csskhyphen.par')
+    actual_params_single = (create_temp_param_file(params_single, 'csskhyphen.par', threshold)
                           if isinstance(params_single, tuple) else params_single)
 
     #print(f"Evaluating weights: {weights}")
@@ -192,7 +192,7 @@ def run_with_params(params_ipa, params_single):
     print(f"Results saved to: {output_filename}")
 
 if __name__ == "__main__":
-    print(sample(["work/ru.ipa.wlh"], (1,), "csskhyphen.par", "csskhyphen.par", 'uk'))
+    print(sample(["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"], (3,5,0,5), (3,4,6,2), (6,2,5,4), 'uk'))
     exit()
     run_with_params("csskhyphen.par", "csskhyphen.par")
     run_with_params("ipa-verysmall.par", "csskhyphen.par")
