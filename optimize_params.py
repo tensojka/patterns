@@ -289,7 +289,9 @@ def main():
 
     if EXPLORATION:
         # Get more suggestions informed by previous scores
-        with Pool() as pool:
+        n_processes = int(os.getenv('RAYON_NUM_THREADS', os.cpu_count()))
+        print("Running with {n_processes} processes")
+        with Pool(processes=n_processes) as pool:
             for round in range(EXPLORATION_ROUNDS):
                 print("="*70)
                 print(f"Round {round}")
