@@ -5,13 +5,18 @@ import unicodedata
 
 # Creates ground truth data from Wiktionary for Ukrainian language.
 
+BANNED_CONTENTS = ['+', '&#', '}', '{', '\\', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '‎', '­', '‪']
+
 def load_xml(file_path):
     tree = ET.parse(file_path)
     return tree.getroot()
 
 def remove_accents(text):
-    return ''.join(char for char in unicodedata.normalize('NFD', text)
-                   if unicodedata.category(char) != 'Mn')
+    # First decompose characters, then recompose without combining marks
+    # but preserve the base characters
+    nfkd_form = unicodedata.normalize('NFKD', text)
+    return unicodedata.normalize('NFC', ''.join(c for c in nfkd_form 
+                                              if not unicodedata.combining(c)))
 
 def extract_syllables(line):
     # Pattern to match only {{склади|...}}
@@ -19,8 +24,11 @@ def extract_syllables(line):
     match = re.search(pattern, line)
     if match:
         syllables = match.group(1)
-        res = syllables.replace('|', '-').replace('-.-', '-')
-        if not ('---' in res or res.endswith('-')):
+        res = syllables.replace('|', '-').replace('-.-', '-').replace('-·-', '-')
+        for forbidden_string in BANNED_CONTENTS:
+            if forbidden_string in res:
+                return None
+        if not ('---' in res or res.endswith('-') or len(res) > 50):
             return res
     return None
 
@@ -59,6 +67,7 @@ def main(file_path):
         if result:
             word, syllables = result
             #print(f"Word: {word}, Syllables: {syllables}")
+
             if len(syllables) > 3 and syllables.count('-') > 1:
                 print(remove_accents(syllables))
 
