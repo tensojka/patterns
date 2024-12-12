@@ -1,6 +1,15 @@
 .PHONY: all clean
 .SECONDARY:
 
+# latest wikipedia dump:
+# LANG_WIKI_DUMP_URL = https://dumps.wikimedia.org/LANGwiki/latest/LANGwiki-latest-pages-articles.xml.bz2
+LATEST_DUMP = 20241201
+PL_WIKI_DUMP_URL = https://dumps.wikimedia.org/plwiki/${LATEST_DUMP}/plwiki-${LATEST_DUMP}-pages-articles.xml.bz2
+UK_WIKI_DUMP_URL = https://dumps.wikimedia.org/ukwiki/${LATEST_DUMP}/ukwiki-${LATEST_DUMP}-pages-articles.xml.bz2
+SK_WIKI_DUMP_URL = https://dumps.wikimedia.org/skwiki/${LATEST_DUMP}/skwiki-${LATEST_DUMP}-pages-articles.xml.bz2
+RU_WIKI_DUMP_URL = https://dumps.wikimedia.org/ruwiki/${LATEST_DUMP}/ruwiki-${LATEST_DUMP}-pages-articles.xml.bz2
+
+
 all: work/cs.frqwl
 
 work/%.ipa.wls: work/%.ipa.wlh
@@ -16,15 +25,31 @@ work/%.frqwl: work/%wikidir
 work/%.wls: work/%.frqwl
 	python frqwl2wls.py $@ $<
 
-work/%wikidir: work/%wiki-latest-pages-articles.xml
+work/%wikidir: work/%wiki-20241201-pages-articles.xml
 	wikiextractor -o $@ $<
 
 %.xml: %.xml.bz2
 	bzip2 -d $<
 
-work/%wiki-latest-pages-articles.xml.bz2:
+work/plwiki-${LATEST_DUMP}-pages-articles.xml.bz2:
 	mkdir -p work
-	wget https://dumps.wikimedia.org/$*wiki/latest/$*wiki-latest-pages-articles.xml.bz2 -O $@
+	wget ${PL_WIKI_DUMP_URL} -O $@
+
+work/skwiki-${LATEST_DUMP}-pages-articles.xml.bz2:
+	mkdir -p work
+	wget ${SK_WIKI_DUMP_URL} -O $@
+
+work/ukwiki-${LATEST_DUMP}-pages-articles.xml.bz2:
+	mkdir -p work
+	wget ${UK_WIKI_DUMP_URL} -O $@
+
+work/ruwiki-${LATEST_DUMP}-pages-articles.xml.bz2:
+	mkdir -p work
+	wget ${RU_WIKI_DUMP_URL} -O $@
+
+work/%wiki-${LATEST_DUMP}-pages-articles.xml.bz2:
+	mkdir -p work
+	wget https://dumps.wikimedia.org/$*wiki/${LATEST_DUMP}/$*wiki-${LATEST_DUMP}-pages-articles.xml.bz2 -O $@
 
 # sh patterns are named differently (sh-latn) and Serbocroat wikipedia uses Latin script.
 work/sh.wlh: work/sh.wls
