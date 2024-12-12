@@ -28,6 +28,8 @@ def generate_frqwl(word_counter, output_file, filter_numeric=True):
         for word, count in word_counter.most_common():
             if filter_numeric and word.isdigit():
                 continue
+            if len(word) > 49:
+                continue
             f.write(f"{word}\t{count}\n")
 
 def main():
