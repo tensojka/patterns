@@ -38,7 +38,8 @@ TODO
     title={Transfer Learning of Slavic Syllabification},
     author={Sojka, Ondřej},
     year={2024},
-    school={Masaryk University}
+    school={Masaryk University},
+    orcid={0000-0003-2048-9977}
 }
 ```
 
