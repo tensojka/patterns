@@ -8,7 +8,7 @@ PL_WIKI_DUMP_URL = https://dumps.wikimedia.org/plwiki/${LATEST_DUMP}/plwiki-${LA
 UK_WIKI_DUMP_URL = https://dumps.wikimedia.org/ukwiki/${LATEST_DUMP}/ukwiki-${LATEST_DUMP}-pages-articles.xml.bz2
 SK_WIKI_DUMP_URL = https://dumps.wikimedia.org/skwiki/${LATEST_DUMP}/skwiki-${LATEST_DUMP}-pages-articles.xml.bz2
 RU_WIKI_DUMP_URL = https://dumps.wikimedia.org/ruwiki/${LATEST_DUMP}/ruwiki-${LATEST_DUMP}-pages-articles.xml.bz2
-
+CS_WIKI_DUMP_URL = https://dumps.wikimedia.org/cswiki/${LATEST_DUMP}/cswiki-${LATEST_DUMP}-pages-articles.xml.bz2
 
 all: work/cs.frqwl
 
@@ -48,6 +48,10 @@ work/ruwiki-${LATEST_DUMP}-pages-articles.xml.bz2:
 	mkdir -p work
 	wget ${RU_WIKI_DUMP_URL} -O $@
 
+work/cswiki-${LATEST_DUMP}-pages-articles.xml.bz2:
+	mkdir -p work
+	wget ${CS_WIKI_DUMP_URL} -O $@
+
 work/%wiki-${LATEST_DUMP}-pages-articles.xml.bz2:
 	mkdir -p work
 	wget https://dumps.wikimedia.org/$*wiki/${LATEST_DUMP}/$*wiki-${LATEST_DUMP}-pages-articles.xml.bz2 -O $@
@@ -83,7 +87,7 @@ work/ukwiktionary-20240920-pages-articles.xml:
 	wget -O work/ukwiktionary-20240920-pages-articles.xml.bz2 https://dumps.wikimedia.org/ukwiktionary/20240920/ukwiktionary-20240920-pages-articles.xml.bz2
 	bzip2 -d work/ukwiktionary-20240920-pages-articles.xml.bz2
 
-eval: work/uk.wlh work/uk.ipa.wls work/ru.wlh work/ru.ipa.wls work/sk.wlh work/sk.ipa.wls work/pl.wlh work/pl.ipa.wls
+eval: work/uk.wlh work/uk.ipa.wls work/ru.wlh work/ru.ipa.wls work/sk.wlh work/sk.ipa.wls work/pl.wlh work/pl.ipa.wls work/cs.ipa.wlh
 
 clean:
 	rm -rf work/*
