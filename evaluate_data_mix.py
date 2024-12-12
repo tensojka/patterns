@@ -192,7 +192,7 @@ def run_with_params(params_ipa, params_single):
     print(f"Results saved to: {output_filename}")
 
 if __name__ == "__main__":
-    print(sample(["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"], (3,5,0,5), (3,4,6,2), (6,2,5,4), 'uk'))
+    print(sample(["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"], (3,5,0,5), (3,4,6,2), (6,2,5,4), 5, 'uk'))
     exit()
     run_with_params("csskhyphen.par", "csskhyphen.par")
     run_with_params("ipa-verysmall.par", "csskhyphen.par")
