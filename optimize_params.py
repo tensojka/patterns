@@ -7,6 +7,8 @@ from sklearn.gaussian_process.kernels import Matern
 
 from multiprocessing import Pool
 
+np.random.seed(42)
+
 def evaluate_params(args):
     """Helper function for parallel evaluation"""
     input_files, weights, params_ipa, params_single, threshold, language, workdir_i = args
