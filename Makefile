@@ -16,6 +16,7 @@ work/%.ipa.wls: work/%.ipa.wlh
 	tr -d '-' < $< > $@
 
 work/%.ipa.wlh: work/%.wlh
+	mkdir -p work/ipacache
 	cd wlh2ipawlh; RUSTFLAGS="-C target-cpu=native -C opt-level=3 -C codegen-units=1" cargo build --release
 	nice ./wlh2ipawlh/target/release/wlh2ipawlh $< $@
 
