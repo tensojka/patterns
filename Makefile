@@ -25,6 +25,9 @@ work/%.ipa.wlh: work/%.wlh
 work/%.frqwl: work/%wikidir
 	python wiki2frqwl.py $< $@
 
+work/sk.wls: work/sk.frqwl
+	python frqwl2wls.py --len=10000 work/sk.wls work/sk.frqwl
+
 work/%.wls: work/%.frqwl
 	python frqwl2wls.py $@ $<
 
