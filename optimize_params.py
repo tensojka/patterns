@@ -3,7 +3,7 @@ import os
 from typing import List, Tuple
 import numpy as np
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern
+from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 
 from multiprocessing import Pool
 
@@ -43,9 +43,6 @@ def export_optimization_data(sampler):
         }
         data.append(entry)
     
-    # Add final exploitation phase if it exists
-    # ... you'd need to store these separately in the sampler
-    
     output = {
         "timestamp": datetime.now().isoformat(),
         "total_iterations": len(data),
@@ -61,10 +58,16 @@ def export_optimization_data(sampler):
 
 class PatgenSampler:
     def __init__(self):
+
+        kernel = Matern(nu=2.5, length_scale=[1.0] * 13, length_scale_bounds=(1e-5, 1e10)) + \
+                WhiteKernel(noise_level=0.1, noise_level_bounds=(1e-4, 1))
+        
         self.gp = GaussianProcessRegressor(
-            kernel=Matern(nu=2.5, length_scale=[1.0] * 13, length_scale_bounds=(1e-5, 1e10)),
+            kernel=kernel,
             normalize_y=True,
-            random_state=42
+            random_state=42,
+            #alpha=0.1,
+            n_restarts_optimizer=2
         )
         self.X = []
         self.y = []
@@ -166,7 +169,7 @@ class PatgenSampler:
         score = good_ratio - bad_penalty
         return max(0.0, min(1.0, (score + 1) / 2))
     
-    def suggest_batch(self, n_suggestions: int = 5, n_candidates: int = 5000) -> List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]:
+    def suggest_batch(self, n_suggestions: int = 5, n_candidates: int = 10000) -> List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]:
         """Suggest a batch of diverse, promising parameter sets with predictions"""
         if len(self.X) < 5:
             suggestions = [self._random_params() for _ in range(n_suggestions)]
@@ -178,7 +181,7 @@ class PatgenSampler:
         
         # Get predictions and uncertainties
         mean, std = self.gp.predict(X_candidates, return_std=True)
-        scores = mean + 5.0 * std
+        scores = mean + 2.0 * std
         
         # Select diverse set from top quartile
         top_quartile = np.percentile(scores, 75)
@@ -228,7 +231,7 @@ class PatgenSampler:
         X_candidates = np.array([self._encode_params(*c) for c in candidates])
         
         # Get just predictions, no uncertainty consideration
-        mean = self.gp.predict(X_candidates).flatten()  # Flatten the 2D array to 1D
+        mean = self.gp.predict(X_candidates)
         
         # Get top predicted performers
         top_indices = np.argsort(mean)[-n_suggestions:][::-1]
@@ -254,7 +257,73 @@ def print_param_set(weights: Tuple[int, ...], params_ipa: Tuple[int, ...],
 
 from evaluate_data_mix import sample
 
+def collect_optimizer_data():
+    """Run optimization and save data for later plotting"""
+    sampler = PatgenSampler()
+    LANGUAGE = "uk"
+    input_files = ["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"]
+    
+    data = {
+        'iterations': [],
+        'predictions': [],
+        'uncertainties': [],
+        'actual_scores': []
+    }
+
+    for iteration in range(50):
+        print(f"\nIteration {iteration}")
+        
+        # Get exploration suggestions and one exploitation suggestion
+        explore_sets = sampler.suggest_batch(n_suggestions=5, n_candidates=5000)
+        exploit_sets = sampler.exploit_best_candidates(n_suggestions=1, n_candidates=20000)
+        
+        # Get uncertainty for the exploited candidate
+        params = exploit_sets[0][0]  # (weights, params_ipa, params_single, threshold)
+        pred_score, uncertainty = sampler._predict(*params)
+        
+        # Combine all sets for parallel evaluation
+        all_sets = explore_sets + [(params, pred_score, uncertainty)]
+        
+        # Prepare parallel evaluation args
+        eval_args = [
+            (input_files, weights, params_ipa, params_single, threshold, LANGUAGE, i)
+            for i, ((weights, params_ipa, params_single, threshold), _, _) in enumerate(all_sets)
+        ]
+        
+        # Evaluate all suggestions in parallel
+        with Pool() as pool:
+            results = pool.map(evaluate_params, eval_args)
+        
+        # Update model with exploration results
+        for (params, _, _), (good, bad, missed) in zip(explore_sets, results[:5]):
+            weights, params_ipa, params_single, threshold = params
+            actual_score = sampler.calculate_score(good, bad, missed)
+            sampler.update(weights, params_ipa, params_single, threshold, actual_score)
+        
+        # Process and store exploitation result
+        (good, bad, missed) = results[5]
+        actual_score = sampler.calculate_score(good, bad, missed)
+        sampler.update(*params, actual_score)
+        
+        # Store data for plotting
+        data['iterations'].append(iteration)
+        data['predictions'].append(pred_score)
+        data['uncertainties'].append(uncertainty)
+        data['actual_scores'].append(actual_score)
+        
+        print(f"Exploitation - predicted: {pred_score:.3f} ± {uncertainty:.3f}, actual: {actual_score:.3f}")
+
+        with open('optimizer_behavior.pkl', 'wb') as f:
+            pickle.dump(data, f)
+
+    return sampler
+
 def main():
+    # First run and collect data
+    sampler = collect_optimizer_data()
+
+
+def main_old():
     RANDOM_SAMPLE_LEN = 10
     EXPLORATION_ROUNDS = 10 # 10 samples in each
 
@@ -345,3 +414,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    print(sample(["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"], (1,1,1,1), (3,3,3,3), (4,4,4,4), 5, 'uk', 42))
