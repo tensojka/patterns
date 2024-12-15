@@ -149,7 +149,6 @@ fn main() -> std::io::Result<()> {
 
     let total_words = WORD_COUNT.load(Ordering::Relaxed);
 
-    println!("\nProcessing complete:");
     println!("Total words processed: {}", total_words);
 
     // Final cache save
