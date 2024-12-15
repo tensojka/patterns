@@ -138,7 +138,7 @@ fn main() -> std::io::Result<()> {
         // Write transformed words to file
         let mut file_guard = out_file.lock().unwrap();
         for (transformed_word, stripped_word, ipa_word) in batch_results {
-            if !transformed_word.contains("(") { // FIXME – ignoring all that start with (en)
+            if !transformed_word.contains("(") && transformed_word.len() <= 49 { // ignoring all that start with (en)
                writeln!(file_guard, "{}", transformed_word).unwrap();
             }
             
