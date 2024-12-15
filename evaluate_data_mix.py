@@ -12,7 +12,7 @@ def evaluate_patterns(patterns_filename: str, groundtruth_filename: str, final_t
 
     # Use these IPA patterns to hyphenate a specific-language wordlist
     hyphenated_ipa_file = os.path.join(TEMP_WORKDIR, f"{language}.ipa.new.wlh")
-    subprocess.run(["python3", "hyph.py", patterns_filename, final_training_wordlist], stdout=open(hyphenated_ipa_file, "w"))
+    subprocess.run(["python3", "hyph.py", patterns_filename, final_training_wordlist], stdout=open(hyphenated_ipa_file, "w"), stderr=subprocess.PIPE)
 
     # Convert the hyphenated wordlist from IPA
     hyphenated_file = os.path.join(TEMP_WORKDIR, f"{language}.new.wlh")
