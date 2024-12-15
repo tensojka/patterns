@@ -29,7 +29,7 @@ The main workflow is orchestrated through the Makefile:
 make
 ```
 
-TODO
+This will download dumps of all three Wikipedias, create for each language `LANG.ipa.wlh` and start the optimizer, optimizing for good Ukrainian patterns.
 
 ## Citation
 

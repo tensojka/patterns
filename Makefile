@@ -1,4 +1,4 @@
-.PHONY: all clean
+.PHONY: eval clean
 .SECONDARY:
 
 # latest wikipedia dump:
@@ -10,7 +10,9 @@ SK_WIKI_DUMP_URL = https://dumps.wikimedia.org/skwiki/${LATEST_DUMP}/skwiki-${LA
 RU_WIKI_DUMP_URL = https://dumps.wikimedia.org/ruwiki/${LATEST_DUMP}/ruwiki-${LATEST_DUMP}-pages-articles.xml.bz2
 CS_WIKI_DUMP_URL = https://dumps.wikimedia.org/cswiki/${LATEST_DUMP}/cswiki-${LATEST_DUMP}-pages-articles.xml.bz2
 
-all: work/cs.frqwl
+eval: work/uk.frqwl work/sk.frqwl work/pl.frqwl work/cs.frqwl work/ru.frqwl work/uk.ipa.wlh work/sk.ipa.wlh work/pl.ipa.wlh work/cs.ipa.wlh work/ru.ipa.wlh
+	python optimize_params.py
+
 
 work/%.ipa.wls: work/%.ipa.wlh
 	tr -d '-' < $< > $@
@@ -86,8 +88,6 @@ groundtruth/uk-full-wiktionary.wlh: work/ukwiktionary-20240920-pages-articles.xm
 work/ukwiktionary-20240920-pages-articles.xml:
 	wget -O work/ukwiktionary-20240920-pages-articles.xml.bz2 https://dumps.wikimedia.org/ukwiktionary/20240920/ukwiktionary-20240920-pages-articles.xml.bz2
 	bzip2 -d work/ukwiktionary-20240920-pages-articles.xml.bz2
-
-eval: work/uk.wlh work/uk.ipa.wls work/ru.wlh work/ru.ipa.wls work/sk.wlh work/sk.ipa.wls work/pl.wlh work/pl.ipa.wls work/cs.ipa.wlh
 
 clean:
 	rm -rf work/*
