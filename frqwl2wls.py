@@ -18,7 +18,7 @@ def get_top_n_words(word_freq_list: List[Tuple[str, int]], n: int) -> List[str]:
 parser = argparse.ArgumentParser()
 parser.add_argument('outf', type=str, help='wls output file')
 parser.add_argument('inpf', type=str, help='frqwl input file')
-parser.add_argument("--len", type=int, default=200000, help='number of top words to include')
+parser.add_argument("--len", type=int, default=50000, help='number of top words to include')
 parser.add_argument("-v", action='store_true', help='verbose')
 
 args = parser.parse_args()
