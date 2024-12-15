@@ -5,8 +5,6 @@ import numpy as np
 
 def plot_optimizer_behavior():
     """Load saved data and create visualization"""
-    # Load the data
-    #with open('optimizer_behavior_data_lower_exploration.pkl', 'rb') as f:
     with open('optimizer_behavior_data.pkl', 'rb') as f:
         data = pickle.load(f)
     
