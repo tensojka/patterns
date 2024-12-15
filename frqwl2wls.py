@@ -3,13 +3,16 @@
 import argparse
 from typing import List, Tuple
 
+FORBIDDEN_CHARACTERS = 'ñôçë'
+
 def parse_frqwl(filename: str) -> List[Tuple[str, int]]:
     with open(filename) as inpf:
         return [
             (split[0], int(split[1]))
             for line in inpf
             for split in [line.strip().split("\t")]
-            if len(split) == 2 and split[1].isdigit()
+            if len(split) == 2 and split[1].isdigit() 
+            and not any(c in split[0] for c in FORBIDDEN_CHARACTERS)
         ]
 
 def get_top_n_words(word_freq_list: List[Tuple[str, int]], n: int) -> List[str]:
