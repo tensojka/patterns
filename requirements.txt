@@ -1,2 +1,0 @@
-regex
-Levenshtein==0.25.1
