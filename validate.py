@@ -66,7 +66,7 @@ def validate_using_patgen(wlh, pat, lang) -> Tuple[int, int, int]:
         return tuple(map(int, match.groups())) # type: ignore
     else:
         print(stdout, sys.stderr)
-        raise Exception("Failed to extract counts from patgen output.")
+        raise Exception(f"Failed to extract counts from patgen output. wlh: {wlh}, pat: {pat}, translatefile: {translatefile}")
 
 
 #validate('groundtruth/uk-full-wiktionary.wlh', '/var/tmp/ipa-patterns/uk.new.pat', 'uk')
