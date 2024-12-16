@@ -3,7 +3,7 @@
 import argparse
 from typing import List, Tuple
 
-FORBIDDEN_CHARACTERS = 'ñôçë'
+FORBIDDEN_CHARACTERS = 'ñôçëè'
 
 def parse_frqwl(filename: str) -> List[Tuple[str, int]]:
     with open(filename) as inpf:
