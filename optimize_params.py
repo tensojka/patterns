@@ -15,46 +15,6 @@ def evaluate_params(args):
     good, bad, missed = sample(input_files, weights, params_ipa, params_single, threshold, language, workdir_i)
     return good, bad, missed
 
-def export_optimization_data(sampler):
-    """Export optimization data to JSON format"""
-    import json
-    from datetime import datetime
-    
-    data = []
-    # Reconstruct evaluations from stored data
-    for i in range(len(sampler.X)):
-        x = sampler.X[i]
-        # Convert back to original parameter format
-        weights = tuple(int(x[j]) for j in range(4))
-        params_ipa = tuple(int(x[j]) for j in range(4, 8))
-        params_single = tuple(int(x[j]) for j in range(8, 12))
-        
-        # Get prediction and uncertainty for this point
-        pred, std = sampler.gp.predict([x], return_std=True)
-        
-        entry = {
-            "iteration": i,
-            "weights": list(weights),
-            "params_ipa": list(params_ipa),
-            "params_single": list(params_single),
-            "predicted_score": float(pred.item()),
-            "uncertainty": float(std[0]),
-            "actual_score": float(sampler.y[i])
-        }
-        data.append(entry)
-    
-    output = {
-        "timestamp": datetime.now().isoformat(),
-        "total_iterations": len(data),
-        "best_score": max(entry["actual_score"] for entry in data),
-        "data": data
-    }
-    
-    filename = f"optimization_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    with open(filename, 'w') as f:
-        json.dump(output, f, indent=2)
-        
-    return filename
 
 class PatgenSampler:
     def __init__(self):
@@ -318,20 +278,25 @@ def collect_optimizer_data():
 
     return sampler
 
+
 def main():
-    # First run and collect data
-    sampler = collect_optimizer_data()
-
-
-def main_old():
     RANDOM_SAMPLE_LEN = 10
-    EXPLORATION_ROUNDS = 10 # 10 samples in each
+    EXPLORATION_ROUNDS = 10
+    SAMPLES_PER_EXPLORATION_ROUND = 10
 
     sampler = PatgenSampler()
-    LANGUAGE = "pl"
+    lang = os.getenv("TARGET_LANGUAGE")
+    LANGUAGE = lang if lang is not None else "pl"
     RANDOM_SAMPLE = True
     EXPLORATION = True
     EXPLOITATION = True
+
+    data = {
+        'iterations': [],
+        'predictions': [],
+        'uncertainties': [],
+        'actual_scores': []
+    }
 
     if LANGUAGE == "pl":
         input_files = ["work/cs.ipa.wlh", "work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/ru.ipa.wlh"]
@@ -347,7 +312,7 @@ def main_old():
         initial_sets = sampler.suggest_batch(n_suggestions=RANDOM_SAMPLE_LEN)
         for params, pred_score, uncertainty in initial_sets:
             weights, params_ipa, params_single, threshold = params
-            print_param_set(weights, params_ipa, params_single, threshold, pred_score, uncertainty)
+            #print_param_set(weights, params_ipa, params_single, threshold, pred_score, uncertainty)
 
             # Run evaluation
             good, bad, missed = sample(input_files, weights, params_ipa, params_single, threshold, LANGUAGE)
@@ -366,26 +331,51 @@ def main_old():
             for round in range(EXPLORATION_ROUNDS):
                 print("="*70)
                 print(f"Round {round}")
-                print("\nNext batch of suggestions based on results:")
-                next_sets = sampler.suggest_batch(n_suggestions=5)
+
+                next_sets = sampler.suggest_batch(n_suggestions=SAMPLES_PER_EXPLORATION_ROUND)
+                exploit_sets = sampler.exploit_best_candidates(n_suggestions=1)
                 
-                # Prepare args for parallel execution
+                # Get uncertainty for the exploited candidate
+                exploit_params = exploit_sets[0][0]
+                pred_score, uncertainty = sampler._predict(*exploit_params)
+                
+                # Combine all sets for parallel evaluation
+                all_sets = next_sets + [(exploit_params, pred_score, uncertainty)]
+                
+                # Prepare parallel evaluation args
                 eval_args = [
                     (input_files, weights, params_ipa, params_single, threshold, LANGUAGE, i) 
-                    for i, ((weights, params_ipa, params_single, threshold), _, _) in enumerate(next_sets)
+                    for i, ((weights, params_ipa, params_single, threshold), _, _) in enumerate(all_sets)
                 ]
                 
                 # Run evaluations in parallel
                 results = pool.map(evaluate_params, eval_args)
                 
                 # Process results and update model
-                for (params, pred_score, uncertainty), (good, bad, missed) in zip(next_sets, results):
+                for (params, pred_score, uncertainty), (good, bad, missed) in zip(next_sets, results[:SAMPLES_PER_EXPLORATION_ROUND]):
                     weights, params_ipa, params_single, threshold = params
                     print_param_set(weights, params_ipa, params_single, threshold, pred_score, uncertainty)
                     actual_score = sampler.calculate_score(good, bad, missed)
                     print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
                     print(f"Actual score: {actual_score:.3f}")
                     sampler.update(weights, params_ipa, params_single, threshold, actual_score)
+                
+                # Process and store exploitation result
+                (good, bad, missed) = results[SAMPLES_PER_EXPLORATION_ROUND]
+                actual_score = sampler.calculate_score(good, bad, missed)
+                sampler.update(*exploit_params, actual_score)
+
+                # Store data for plotting
+                data['iterations'].append(round)
+                data['predictions'].append(pred_score)
+                data['uncertainties'].append(uncertainty)
+                data['actual_scores'].append(actual_score)
+                
+                print(f"\nExploitation - predicted: {pred_score:.3f} ± {uncertainty:.3f}, actual: {actual_score:.3f}")
+                
+                # Save data after each round
+                with open(f'optimizer_behavior_{LANGUAGE}.pkl', 'wb') as f:
+                    pickle.dump(data, f)
 
 
     if EXPLOITATION:
@@ -409,9 +399,10 @@ def main_old():
     length_scales = sampler.gp.kernel_.length_scale
     print("Length scales:")
     print(length_scales)
-    export_optimization_data(sampler)
     sampler.save_state(f"work/model{LANGUAGE}.pkl")
 
 if __name__ == '__main__':
+    # To collect optimizer data:
+    #collect_optimizer_data()
     main()
-    print(sample(["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"], (1,1,1,1), (3,3,3,3), (4,4,4,4), 5, 'uk', 42))
+    #print(sample(["work/pl.ipa.wlh", "work/sk.ipa.wlh", "work/uk.ipa.wlh", "work/ru.ipa.wlh"], (1,1,1,1), (3,3,3,3), (4,4,4,4), 5, 'uk', 42))
