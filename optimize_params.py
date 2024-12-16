@@ -86,7 +86,7 @@ class PatgenSampler:
 
     def _random_params(self) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...], int]:
         """Generate random parameter sets"""
-        weights = tuple(np.random.randint(1, 9, size=4))
+        weights = tuple(np.random.randint(0, 9, size=4))
         params_ipa = tuple(np.random.randint(1, 9, size=4))
         params_single = tuple(np.random.randint(1, 9, size=4))
         threshold = np.random.randint(1,9)
