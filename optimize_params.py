@@ -408,7 +408,7 @@ def main_parallel():
 
 def main_reproducible():
     RANDOM_SAMPLE_LEN = 10
-    EXPLORATION_ROUNDS = 50
+    EXPLORATION_ROUNDS = 10
     SAMPLES_PER_EXPLORATION_ROUND = 10
 
     sampler = PatgenSampler()
