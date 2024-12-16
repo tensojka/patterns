@@ -69,7 +69,7 @@ work/sh.wlh: work/sh.wls
 	@if [ ! -f work/hyph-sh-latn.tex ]; then \
 		wget https://raw.githubusercontent.com/hyphenation/tex-hyphen/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-sh-latn.tex -O work/hyph-sh-latn.tex; \
 	fi
-	python hyph.py work/hyph-sh-latn.tex $< > $@
+	python hyph.py work/hyph-sh-latn.tex $< > $@.tmp && mv $@.tmp $@
 
 work/csskhyphen.pat:
 	@if [ ! -f work/csskhyphen.pat ]; then \
@@ -77,16 +77,16 @@ work/csskhyphen.pat:
 	fi
 
 work/sk.wlh: work/sk.wls work/csskhyphen.pat
-	python hyph.py work/csskhyphen.pat $< > $@
+	python hyph.py work/csskhyphen.pat $< > $@.tmp && mv $@.tmp $@
 
 work/cs.wlh: work/cs.wls work/csskhyphen.pat
-	python hyph.py work/csskhyphen.pat $< > $@
+	python hyph.py work/csskhyphen.pat $< > $@.tmp && mv $@.tmp $@
 
 work/%.wlh: work/%.wls
 	@if [ ! -f work/hyph-$*.tex ]; then \
 		wget https://raw.githubusercontent.com/hyphenation/tex-hyphen/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-$*.tex -O work/hyph-$*.tex; \
 	fi
-	python hyph.py work/hyph-$*.tex $< > $@
+	python hyph.py work/hyph-$*.tex $< > $@.tmp && mv $@.tmp $@
 
 groundtruth/uk-full-wiktionary.wlh: work/ukwiktionary-20240920-pages-articles.xml parse_ground_truth.py
 	python parse_ground_truth.py $< > $@
