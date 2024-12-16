@@ -10,7 +10,7 @@ SK_WIKI_DUMP_URL = https://dumps.wikimedia.org/skwiki/${LATEST_DUMP}/skwiki-${LA
 RU_WIKI_DUMP_URL = https://dumps.wikimedia.org/ruwiki/${LATEST_DUMP}/ruwiki-${LATEST_DUMP}-pages-articles.xml.bz2
 CS_WIKI_DUMP_URL = https://dumps.wikimedia.org/cswiki/${LATEST_DUMP}/cswiki-${LATEST_DUMP}-pages-articles.xml.bz2
 
-eval: work/uk.frqwl work/sk.frqwl work/pl.frqwl work/cs.frqwl work/ru.frqwl work/uk.ipa.wlh work/sk.ipa.wlh work/pl.ipa.wlh work/cs.ipa.wlh work/ru.ipa.wlh work/uk.ipa.wls work/sk.ipa.wls work/pl.ipa.wls work/cs.ipa.wls work/ru.ipa.wls
+eval: work/uk.frqwl work/sk.frqwl work/pl.frqwl work/cs.frqwl work/ru.frqwl work/uk.ipa.wls work/sk.ipa.wls work/pl.ipa.wls work/cs.ipa.wls work/ru.ipa.wls
 	nice python optimize_params.py
 
 
