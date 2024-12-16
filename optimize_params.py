@@ -310,23 +310,31 @@ def main():
     if RANDOM_SAMPLE:
         print(f"Randomly sampling {RANDOM_SAMPLE_LEN} parameter sets")
         initial_sets = sampler.suggest_batch(n_suggestions=RANDOM_SAMPLE_LEN)
-        for params, pred_score, uncertainty in initial_sets:
+        
+        # Prepare parallel evaluation args
+        eval_args = [
+            (input_files, weights, params_ipa, params_single, threshold, LANGUAGE, i)
+            for i, ((weights, params_ipa, params_single, threshold), _, _) in enumerate(initial_sets)
+        ]
+        
+        # Run evaluations in parallel
+        with Pool() as pool:
+            results = pool.map(evaluate_params, eval_args)
+        
+        # Process results and update model
+        for (params, pred_score, uncertainty), (good, bad, missed) in zip(initial_sets, results):
             weights, params_ipa, params_single, threshold = params
-            #print_param_set(weights, params_ipa, params_single, threshold, pred_score, uncertainty)
-
-            # Run evaluation
-            good, bad, missed = sample(input_files, weights, params_ipa, params_single, threshold, LANGUAGE)
             actual_score = sampler.calculate_score(good, bad, missed)
             print(f"Evaluation: good={good}, bad={bad}, missed={missed}")
             print(f"Actual score: {actual_score:.3f}")
-            
-            # Update model
+
             sampler.update(weights, params_ipa, params_single, threshold, actual_score)
+
 
     if EXPLORATION:
         # Get more suggestions informed by previous scores
         n_processes = int(os.getenv('RAYON_NUM_THREADS', os.cpu_count()))
-        print("Running with {n_processes} processes")
+        print(f"Running with {n_processes} processes")
         with Pool(processes=n_processes) as pool:
             for round in range(EXPLORATION_ROUNDS):
                 print("="*70)
@@ -396,9 +404,6 @@ def main():
             sampler.update(weights, params_ipa, params_single, threshold, actual_score)
 
 
-    length_scales = sampler.gp.kernel_.length_scale
-    print("Length scales:")
-    print(length_scales)
     sampler.save_state(f"work/model{LANGUAGE}.pkl")
 
 if __name__ == '__main__':
