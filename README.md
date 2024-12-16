@@ -26,7 +26,7 @@ Attempt to install dependencies without Nix only if you're feeling particularly 
 The main workflow is orchestrated through the Makefile:
 
 ```bash
-LANGUAGE={pl/uk} nice make -j
+TARGET_LANGUAGE={pl/uk} nice make -j
 ```
 
 This will download dumps of all the Wikipedias, create for each source language `LANG.ipa.wlh` and start the optimizer, optimizing for good Ukrainian patterns if `LANGUAGE=uk` and for Polish patterns if `LANGUAGE=pl`.

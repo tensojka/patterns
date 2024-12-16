@@ -18,7 +18,7 @@ def evaluate_params(args):
 
 class PatgenSampler:
     def __init__(self):
-
+        self.rng = np.random.RandomState(42)
         kernel = Matern(nu=2.5, length_scale=[1.0] * 13, length_scale_bounds=(1e-5, 1e10)) + \
                 WhiteKernel(noise_level=0.1, noise_level_bounds=(1e-4, 1))
         
