@@ -26,10 +26,10 @@ Attempt to install dependencies without Nix only if you're feeling particularly 
 The main workflow is orchestrated through the Makefile:
 
 ```bash
-make
+make -j
 ```
 
-This will download dumps of all three Wikipedias, create for each language `LANG.ipa.wlh` and start the optimizer, optimizing for good Ukrainian patterns.
+This will download dumps of all the Wikipedias, create for each language `LANG.ipa.wlh` and start the optimizer, optimizing for good Ukrainian patterns.
 
 ## Citation
 
