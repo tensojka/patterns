@@ -25,7 +25,7 @@ work/%.ipa.wlh: work/%.wlh wlh2ipawlh/target/release/wlh2ipawlh
 	nice ./wlh2ipawlh/target/release/wlh2ipawlh $< $@
 
 work/%.frqwl: work/%wikidir/.extraction_complete
-	python wiki2frqwl.py $< $@
+	python wiki2frqwl.py work/$*wikidir $@
 
 work/sk.wls: work/sk.frqwl
 	python frqwl2wls.py --len=10000 work/sk.wls work/sk.frqwl
