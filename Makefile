@@ -24,7 +24,7 @@ wlh2ipawlh/target/release/wlh2ipawlh:
 work/%.ipa.wlh: work/%.wlh wlh2ipawlh/target/release/wlh2ipawlh
 	nice ./wlh2ipawlh/target/release/wlh2ipawlh $< $@
 
-work/%.frqwl: work/%wikidir
+work/%.frqwl: work/%wikidir/.extraction_complete
 	python wiki2frqwl.py $< $@
 
 work/sk.wls: work/sk.frqwl
@@ -33,8 +33,9 @@ work/sk.wls: work/sk.frqwl
 work/%.wls: work/%.frqwl
 	python frqwl2wls.py $@ $<
 
-work/%wikidir: work/%wiki-20241201-pages-articles.xml
-	wikiextractor -o $@ $<
+work/%wikidir/.extraction_complete: work/%wiki-${LATEST_DUMP}-pages-articles.xml
+	wikiextractor -o work/$*wikidir $<
+	touch $@
 
 %.xml: %.xml.bz2
 	bzip2 -d $<
