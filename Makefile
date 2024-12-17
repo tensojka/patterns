@@ -13,6 +13,8 @@ CS_WIKI_DUMP_URL = https://dumps.wikimedia.org/cswiki/${LATEST_DUMP}/cswiki-${LA
 eval: work/uk.frqwl work/sk.frqwl work/pl.frqwl work/cs.frqwl work/ru.frqwl work/uk.ipa.wls work/sk.ipa.wls work/pl.ipa.wls work/cs.ipa.wls work/ru.ipa.wls
 	nice python optimize_params.py
 
+repro: work/uk.frqwl work/sk.frqwl work/pl.frqwl work/cs.frqwl work/ru.frqwl work/uk.ipa.wls work/sk.ipa.wls work/pl.ipa.wls work/cs.ipa.wls work/ru.ipa.wls
+	python evaluate_data_mix.py
 
 work/%.ipa.wls: work/%.ipa.wlh
 	tr -d '-' < $< > $@
