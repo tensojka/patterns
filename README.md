@@ -68,7 +68,8 @@ Results from original Ukrainian patterns
     year={2024},
     school={Masaryk University},
     orcid={0000-0003-2048-9977},
-    type={Bachelor's Thesis}
+    type={Bachelor's Thesis},
+    url={https://is.muni.cz/th/s17d6/}
 }
 ```
 
