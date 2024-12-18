@@ -76,7 +76,7 @@ Results from original Ukrainian patterns
 
 MIT
 
-Wikipedia data used in this project is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The Wikipedia dumps were obtained from [Wikimedia Downloads](https://dumps.wikimedia.org/). Wikipedia content is contributed by volunteers and is © Wikipedia contributors.
+Wikipedia and Wiktionary data used in this project is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The Wikipedia and Wiktionary dumps were obtained from [Wikimedia Downloads](https://dumps.wikimedia.org/). Wikipedia and Wiktionary content is contributed by volunteers and is © Wikipedia and Wiktionary contributors.
 
 ## Author
 
